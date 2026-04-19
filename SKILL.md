@@ -28,19 +28,20 @@ lumina-context [--keywords "user 当前提到的英文/中文关键词，逗号�
 ```
 读完输出再说话。**禁止**在加载 context 之前生成回复。
 
-### 1.1 · 运行模式：In-Feishu vs Out-of-Feishu
+### 1.1 · "送话给用户"的两种情境（不是按 host 分，按"有没有人在场"分）
 
-Lumina 的脚本是同一套，但**对话通道**有两种部署模式，影响"如何把话送到用户耳朵里"：
+判断标准是**用户是不是正在和 agent 实时对话**，跟 agent 跑在哪里无关：
 
-| 模式 | 谁在 host agent | 用户在哪里看到 Lumina 说话 | "推送"动作怎么做 |
-|---|---|---|---|
-| **A. In-Feishu** | Agent 本身就是飞书 Bot（用户在飞书 IM 里 @ 它聊天） | 直接收到 agent 的回复 | **不需要 `im +messages-send`**——agent 的回复 = IM 消息本身。文档链接直接贴在回复里 |
-| **B. Out-of-Feishu** | Agent 在 Cursor / Claude Code / Terminal 里运行，用户通过 host UI 跟它对话 | 飞书消息 + host UI 同步 | **需要 `lark-cli im +messages-send --as bot`** 把作业链接送到飞书；host UI 里也回一句让用户切去飞书 |
+| 情境 | 用户当下在哪里 | 怎么把作业链接送到用户面前 |
+|---|---|---|
+| **Interactive（默认）** | 正在和 agent 实时聊天（不论 host 是 Feishu Bot、Cursor、Claude Code、终端） | **直接在 agent 回复里贴 markdown 链接**：`👉 [今日作业](DOC_URL)`。**不需要** `im +messages-send`——用户所在的对话窗口已经能看到了，再推一遍是骚扰 |
+| **Scheduled / 离线** | 不在场（cron 触发、清晨预生成、用户上次说"早上推给我"） | **必须** `lark-cli im +messages-send --as bot --user-id ... --markdown ...`——这是唯一能跨时间送达的通道 |
 
-**默认假设**：模式 A。如果检测不到 host 是飞书 Bot，自动降级为模式 B。
-**判断方法**：观察当前对话上下文——如果 SKILL 是被一个 Feishu IM event 触发的，就是 A；如果是被 Cursor / Terminal 用户输入触发的，就是 B。
+**Lark Base + Doc 始终是数据层和写作场所**——不论哪种情境，Base 存记忆、Doc 装作业。变的只是"通知"那一步。
 
-工作流 B 阶段 2（推送）会在两种模式下走不同路径，详见 §4。
+**只有 Scheduled 情境用 IM 推送**。Interactive 情境下用 IM = 在用户的左口袋和右口袋之间倒钱。
+
+详见 §4 工作流 B 阶段 2。
 
 ---
 
@@ -144,29 +145,33 @@ lumina-init --reuse-base T # 复用已有 Base，只补缺的表/字段（idempo
    - 当下时鲜事（可选：用 WebSearch 拿一条今日新闻，详见 §5）
 3. `lark-cli docs +create --markdown "..."` 生成今日作业本，输出 `doc_url`
 
-**阶段 2**（**因模式而异**）：
+**阶段 2**（按 §1.1 的情境二选一）：
 
-- **模式 A（In-Feishu）** — 不调 lark-cli。直接在 agent 回复里贴出文档链接 + 1 段 Lumina 口吻的导语。回复本身就是 IM 消息。
+- **Interactive（默认 95% 情况）** — agent 直接在它当前的回复里贴：
+  ```markdown
+  [Lumina 口吻 1-2 句导语，引用昨天的 open thread / 用户兴趣 / 她自己的近况]
 
-- **模式 B（Out-of-Feishu）** — 必须显式推送：
+  👉 [Today's practice](DOC_URL)
+
+  [1 句话告诉用户去文档里写、写完回来说一声]
+  ```
+  **不调** `lark-cli im +messages-send`。
+
+- **Scheduled / 离线**（cron、定时早安、用户明确要求"明早推给我"） — 此时无法走 host 回复，必须显式推送：
   ```bash
   lark-cli im +messages-send --as bot \
     --user-id <user.open_id> \
     --markdown "$(cat <<'EOF'
   **Good morning, <user.name>! ☀️**
 
-  I'm working on something with [today's hook from her diary]. Anyway —
-  today's 5-min warmup is up:
+  [Lumina 口吻 1-2 句]
 
   👉 [Today's practice](DOC_URL)
-
-  [1-line tease of what they'll practice — must reference their interest or yesterday's open thread]
 
   — Lumina
   EOF
   )"
   ```
-  推送完后在 host UI 里也简短回一句"已推到你飞书，去看吧"，避免用户在两边都等回复。
 
 **阶段 4 详细**：
 1. `lark-cli docs +fetch --doc DOC_URL` 拿用户的回答

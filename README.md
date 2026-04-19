@@ -114,14 +114,16 @@ In your AI agent, just say:
 
 The agent will load `lumina-context`, generate today's prompt, create a Doc, and (depending on mode) push the link to your Feishu. Open the Doc, write your reply, tell the agent "done" — Lumina's recasts appear inline as comments, and the session is sedimented back to your Base.
 
-## Two running modes
+## When does Lumina actually push to Feishu IM?
 
-| Mode | When | "Push to user" mechanism |
+The split is **not** by host (Feishu Bot vs Cursor vs Claude Code). It's by **whether the user is currently in a live conversation with the agent**:
+
+| Situation | What happens | IM push? |
 |---|---|---|
-| **In-Feishu** | Your AI agent IS the Feishu bot (user is chatting with it directly via Feishu IM) | Skip `im +messages-send` — the agent's reply is already an IM. Just paste the doc link in the reply. |
-| **Out-of-Feishu** | Your AI agent runs in Cursor / Claude Code / terminal | Use `lark-cli im +messages-send --as bot` to deliver assignment links to Feishu, so the user reads them in their actual messaging app |
+| **Interactive** (default — user is chatting with the agent right now, regardless of host) | Doc link goes inline in the agent's reply | **No** — pasting a Feishu link into Feishu IM when the user is already in the chat is left-pocket-to-right-pocket |
+| **Scheduled / async** (cron, "push me an assignment tomorrow morning", agent acts without user present) | Use `lark-cli im +messages-send --as bot` to wake the user via their Feishu | **Yes** |
 
-The skill auto-detects: see SKILL.md §1.1 for the rule.
+The Lark Base + Doc are **always** the data and writing surface; only the *notification step* differs.
 
 ## Customizing your Lumina
 
