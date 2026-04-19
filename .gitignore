@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+*.pyo
+.DS_Store
+.idea/
+.vscode/
+*.log
+
+# Local config (per-user; lives at ~/.lumina/config.json, never in repo)
+config.json
+.lumina/

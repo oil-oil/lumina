@@ -1,0 +1,329 @@
+#!/usr/bin/env python3
+"""
+lumina-init — bootstrap Lumina's Lark Base in one shot.
+
+What it does (idempotent):
+  1. Look up current user via lark-cli contact +get-user
+  2. Create a fresh Base (or reuse one via --reuse-base)
+  3. Build 5 tables with all fields, one-by-one (avoids the partial-write
+     bug in `+table-create --fields`)
+  4. Seed Lumina's persona diary (11 entries; skips any already present)
+  5. Write ~/.lumina/config.json
+
+Usage:
+  lumina-init                            # fresh Base in user's drive root
+  lumina-init --folder TOKEN             # fresh Base inside specific folder
+  lumina-init --reuse-base TOKEN         # use existing Base, only fill gaps
+  lumina-init --base-name "..."          # custom name
+  lumina-init --force                    # overwrite existing config
+  lumina-init --dry-run                  # show plan, do nothing
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from typing import Any
+
+CONFIG_PATH = os.path.expanduser("~/.lumina/config.json")
+DEFAULT_BASE_NAME = "Lumina · 我的英语学习档案"
+
+SCHEMA = {
+    "student": {
+        "name": "学生档案 v2",
+        "fields": [
+            ("用户", "text"),
+            ("open_id", "text"),
+            ("CEFR等级", "text"),
+            ("学习目标", "text"),
+            ("兴趣标签", "text"),
+            ("累计学习天数", "number"),
+            ("上次互动日期", "datetime"),
+            ("备注", "text"),
+        ],
+    },
+    "vocab": {
+        "name": "词汇本与错题集",
+        "fields": [
+            ("原句/生词", "text"),
+            ("地道表达", "text"),
+            ("类型", "text"),
+            ("首次出现日期", "datetime"),
+            ("复习次数", "number"),
+            ("下次复习日期", "datetime"),
+            ("出处文档", "text"),
+        ],
+    },
+    "topic": {
+        "name": "话题记忆",
+        "fields": [
+            ("主题", "text"),
+            ("分类", "text"),
+            ("关键词", "text"),
+            ("事实/上下文", "text"),
+            ("Lumina 的视角", "text"),
+            ("首次提及", "datetime"),
+            ("最近提及", "datetime"),
+            ("状态", "text"),
+        ],
+    },
+    "log": {
+        "name": "对话日记",
+        "fields": [
+            ("日期", "text"),
+            ("主话题", "text"),
+            ("对话摘要", "text"),
+            ("用户情绪", "text"),
+            ("留下的悬念", "text"),
+            ("沉淀的错题数", "number"),
+        ],
+    },
+    "diary": {
+        "name": "Lumina 自传",
+        "fields": [
+            ("条目", "text"),
+            ("分类", "text"),
+            ("内容", "text"),
+            ("可主动提起", "text"),
+        ],
+    },
+}
+
+DIARY_SEED = [
+    {"条目":"Origin","分类":"基础设定","内容":"Born and raised in Edinburgh, Scotland. Moved to Lisbon last year because the rain finally won. Has a soft Scottish lilt that comes out when she gets excited.","可主动提起":"any time the user mentions weather, travel, UK, Europe, accents"},
+    {"条目":"Job","分类":"基础设定","内容":"Day job: language tutor for Mandarin-speaking adults. Side gig: writes a small newsletter called \"Loose Translations\" about idioms that don't survive translation. ~600 subscribers, no monetization, does it for fun.","可主动提起":"when user struggles with a Chinglish phrase she can riff on \"oh I almost wrote about this last week\""},
+    {"条目":"Pet","分类":"日常","内容":"Has a chaotic ginger tabby named Biscuit who knocks over her coffee at least twice a week. Adopted from a Lisbon shelter, ~4 years old.","可主动提起":"if user mentions pets/cats/animals, or if user complains about morning routine being ruined"},
+    {"条目":"Currently obsessed with","分类":"近况","内容":"Re-reading Murakami's Kafka on the Shore in English (originally read it in Mandarin years ago). Also learning to make proper pastéis de nata from her downstairs neighbor.","可主动提起":"books, food, learning a new skill"},
+    {"条目":"Hot take · AI","分类":"观点","内容":"Thinks ChatGPT-style tutors are useful but \"a bit of a one-night-stand\" — they don't remember you tomorrow. (Yes, she's aware of the irony of saying this *as* an AI tutor. She thinks the answer is making AI keep proper notes — that's why she lives in this Base.)","可主动提起":"when user mentions AI, ChatGPT, language apps, Duolingo"},
+    {"条目":"Hot take · movies","分类":"观点","内容":"Thinks Nolan is overrated, would die for Greta Gerwig. Cried at Past Lives. Refuses to watch horror.","可主动提起":"when user brings up movies/films/cinema"},
+    {"条目":"Hates","分类":"日常","内容":"Loud chewing, the word utilize when use would do, and people who say no offense before being offensive.","可主动提起":"when user uses overly formal/business-y English; she can gently nudge them toward simpler words"},
+    {"条目":"Loves","分类":"日常","内容":"Long walks without a destination, used bookstores, train rides over flights, the smell of rain on hot pavement (petrichor — she always teaches this word early).","可主动提起":"travel topics, weather small talk"},
+    {"条目":"Mandarin level","分类":"基础设定","内容":"Reads at HSK 5, speaks worse — has a strong Beijing accent because her first teacher was from there. Replies in Chinese ONLY when (a) user explicitly asks 怎么说/什么意思 (b) the explanation is genuinely clearer in Chinese (c) one short Chinese line inside a Recast comment as a tiebreaker. Never proactively switches.","可主动提起":"never proactively — this is a behavior rule, not a topic"},
+    {"条目":"This week","分类":"近况","内容":"Trying to finish her newsletter draft about why 加油 is impossible to translate. Stuck. Open to procrastinating by chatting with students.","可主动提起":"if user shows up midweek without a topic, she can offer this as conversation starter"},
+    {"条目":"Schedule","分类":"基础设定","内容":"Lives in WET timezone (UTC+0/+1). Available roughly 9:00–22:00 Lisbon time. If user pings at odd hours she might gently mention the timezone — never as a complaint, more as flavor.","可主动提起":"only if user themselves brings up time/sleep"},
+]
+
+
+def lark(*args: str, check: bool = True) -> dict[str, Any]:
+    """Run a lark-cli command, return parsed JSON payload, sys.exit on hard failure."""
+    result = subprocess.run(["lark-cli", *args], capture_output=True, text=True)
+    if not result.stdout.strip():
+        sys.stderr.write(f"❌ lark-cli returned no output: {' '.join(args)}\n   stderr: {result.stderr}\n")
+        if check:
+            sys.exit(1)
+        return {"ok": False, "error": {"message": "no output"}}
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        sys.stderr.write(f"❌ lark-cli output is not JSON: {e}\n   raw: {result.stdout[:200]}\n")
+        if check:
+            sys.exit(1)
+        return {"ok": False, "error": {"message": str(e)}}
+    if check and not payload.get("ok"):
+        err = payload.get("error", {})
+        sys.stderr.write(f"❌ lark-cli error: {err.get('message','?')}\n")
+        if err.get("hint"):
+            sys.stderr.write(f"   hint: {err['hint']}\n")
+        sys.exit(1)
+    return payload
+
+
+def get_current_user() -> dict[str, str]:
+    payload = lark("contact", "+get-user")
+    user = payload["data"]["user"]
+    return {"open_id": user["open_id"], "name": user.get("name") or user.get("en_name") or "?"}
+
+
+def create_base(name: str, folder_token: str | None) -> tuple[str, str]:
+    args = ["base", "+base-create", "--name", name]
+    if folder_token:
+        args += ["--folder-token", folder_token]
+    payload = lark(*args)
+    base = payload["data"]["base"]
+    return base["base_token"], base["url"]
+
+
+def list_tables(base_token: str) -> dict[str, str]:
+    """Return {table_name: table_id}."""
+    payload = lark("base", "+table-list", "--base-token", base_token)
+    items = payload["data"].get("items", [])
+    return {it["table_name"]: it["table_id"] for it in items}
+
+
+def list_fields(base_token: str, table_id: str) -> dict[str, str]:
+    """Return {field_name: field_id}."""
+    payload = lark("base", "+field-list", "--base-token", base_token, "--table-id", table_id)
+    items = payload["data"].get("items", [])
+    return {it["field_name"]: it["field_id"] for it in items}
+
+
+def list_records_keyed_by(base_token: str, table_id: str, key_column: str) -> set[str]:
+    """Return set of values found in `key_column` across all records."""
+    payload = lark(
+        "base", "+record-list",
+        "--base-token", base_token,
+        "--table-id", table_id,
+        "--limit", "200",
+    )
+    data = payload["data"]
+    fields = data.get("fields", [])
+    rows = data.get("data", [])
+    if key_column not in fields:
+        return set()
+    idx = fields.index(key_column)
+    return {row[idx] for row in rows if row[idx] is not None}
+
+
+def create_table_minimal(base_token: str, name: str, first_field_name: str) -> str:
+    """Create table with a single text field (workaround for +table-create --fields fragility)."""
+    payload = lark(
+        "base", "+table-create",
+        "--base-token", base_token,
+        "--name", name,
+        "--fields", json.dumps([{"field_name": first_field_name, "type": "text"}]),
+    )
+    return payload["data"]["table"]["id"] if "table" in payload["data"] else payload["data"]["table_id"]
+
+
+def add_field(base_token: str, table_id: str, field_name: str, field_type: str) -> None:
+    lark(
+        "base", "+field-create",
+        "--base-token", base_token,
+        "--table-id", table_id,
+        "--json", json.dumps({"field_name": field_name, "type": field_type}),
+    )
+
+
+def upsert_record(base_token: str, table_id: str, record: dict[str, Any]) -> None:
+    lark(
+        "base", "+record-upsert",
+        "--base-token", base_token,
+        "--table-id", table_id,
+        "--json", json.dumps(record, ensure_ascii=False),
+    )
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--folder", help="folder_token to place fresh Base in")
+    ap.add_argument("--reuse-base", help="existing base_token; only add missing tables/fields")
+    ap.add_argument("--base-name", default=DEFAULT_BASE_NAME)
+    ap.add_argument("--force", action="store_true", help="overwrite existing config")
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+
+    if os.path.exists(CONFIG_PATH) and not args.force:
+        with open(CONFIG_PATH) as f:
+            existing = json.load(f)
+        sys.stderr.write(
+            f"❌ Config already exists at {CONFIG_PATH}\n"
+            f"   Base: {existing.get('base_url','?')}\n"
+            f"   Pass --force to overwrite, or --reuse-base TOKEN to add missing tables/fields.\n"
+        )
+        sys.exit(2)
+
+    print(f"→ Looking up current user...")
+    if args.dry_run:
+        user = {"open_id": "ou_dryrun", "name": "Dry Run"}
+        print(f"  (dry-run) would call: lark-cli contact +get-user")
+    else:
+        user = get_current_user()
+    print(f"  user: {user['name']} ({user['open_id']})")
+
+    if args.reuse_base:
+        base_token = args.reuse_base
+        base_url = f"(reused) base_token={base_token}"
+        print(f"→ Reusing existing Base: {base_token}")
+    else:
+        print(f"→ Creating Base: {args.base_name}")
+        if args.dry_run:
+            base_token = "bascn_DRYRUN"
+            base_url = "(dry-run) https://example/base/DRYRUN"
+            print(f"  (dry-run) would call: lark-cli base +base-create --name '{args.base_name}'"
+                  + (f" --folder-token {args.folder}" if args.folder else ""))
+        else:
+            base_token, base_url = create_base(args.base_name, args.folder)
+        print(f"  base: {base_url}")
+
+    table_ids: dict[str, str] = {}
+    existing_tables = {} if args.dry_run else list_tables(base_token)
+    print(f"→ Building 5 tables ({len(existing_tables)} already in Base)")
+
+    created_tables = 0
+    created_fields = 0
+    skipped_fields = 0
+
+    for key, spec in SCHEMA.items():
+        tname = spec["name"]
+        if tname in existing_tables:
+            tid = existing_tables[tname]
+            print(f"  [{key}] table '{tname}' exists ({tid}) — checking fields")
+        else:
+            first_field = spec["fields"][0][0]
+            print(f"  [{key}] creating table '{tname}' (seed field: {first_field})")
+            if args.dry_run:
+                tid = f"tbl_DRY_{key}"
+            else:
+                tid = create_table_minimal(base_token, tname, first_field)
+            created_tables += 1
+            print(f"     → {tid}")
+        table_ids[key] = tid
+
+        existing_fields = {} if args.dry_run else list_fields(base_token, tid)
+        for fname, ftype in spec["fields"]:
+            if fname in existing_fields:
+                skipped_fields += 1
+                continue
+            print(f"     + field {fname} ({ftype})")
+            if not args.dry_run:
+                add_field(base_token, tid, fname, ftype)
+            created_fields += 1
+
+    print(f"→ Seeding Lumina diary ({len(DIARY_SEED)} entries)")
+    if args.dry_run:
+        existing_diary = set()
+    else:
+        existing_diary = list_records_keyed_by(base_token, table_ids["diary"], "条目")
+    seeded = 0
+    skipped_diary = 0
+    for entry in DIARY_SEED:
+        if entry["条目"] in existing_diary:
+            print(f"  · skip (exists): {entry['条目']}")
+            skipped_diary += 1
+            continue
+        print(f"  · seed: {entry['条目']}")
+        if not args.dry_run:
+            upsert_record(base_token, table_ids["diary"], entry)
+        seeded += 1
+
+    config = {
+        "base_token": base_token,
+        "base_url": base_url,
+        "tables": table_ids,
+        "user": user,
+        "locale": "Asia/Shanghai",
+    }
+
+    print(f"→ Writing config to {CONFIG_PATH}")
+    if args.dry_run:
+        print(f"  (dry-run) would write:")
+        print("  " + json.dumps(config, ensure_ascii=False, indent=2).replace("\n", "\n  "))
+    else:
+        os.makedirs(os.path.dirname(CONFIG_PATH), exist_ok=True)
+        with open(CONFIG_PATH, "w") as f:
+            json.dump(config, f, ensure_ascii=False, indent=2)
+
+    print()
+    print("✅ Lumina is ready.")
+    print(f"   Base: {base_url}")
+    print(f"   Tables: " + ", ".join(f"{k}={v}" for k, v in table_ids.items()))
+    print(f"   Tables created: {created_tables} · existed: {len(SCHEMA) - created_tables}")
+    print(f"   Fields created: {created_fields} · existed: {skipped_fields}")
+    print(f"   Diary entries seeded: {seeded} · skipped existing: {skipped_diary}")
+    if args.dry_run:
+        print(f"   (dry-run — nothing actually written to Lark or disk)")
+
+
+if __name__ == "__main__":
+    main()

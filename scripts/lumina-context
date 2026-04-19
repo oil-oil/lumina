@@ -1,0 +1,179 @@
+#!/usr/bin/env python3
+"""
+lumina-context — load Lumina's full memory preamble in one shot.
+
+Replaces 5+ raw lark-cli list calls with a single compact Markdown block.
+Designed for the agent to invoke at the very start of every conversation.
+
+Usage:
+  lumina-context                         # full preamble
+  lumina-context --keywords movie,job    # also pull topic-memory rows whose
+                                          # keywords column matches any term
+  lumina-context --json                  # emit JSON instead of Markdown
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timezone
+
+CONFIG_PATH = os.path.expanduser("~/.lumina/config.json")
+
+
+def load_config():
+    if not os.path.exists(CONFIG_PATH):
+        sys.exit(f"❌ {CONFIG_PATH} not found. Run `lumina-init` first.")
+    with open(CONFIG_PATH) as f:
+        return json.load(f)
+
+
+def lark_list(base_token: str, table_id: str) -> list[dict]:
+    """Call lark-cli base +record-list and return list of {field: value} dicts."""
+    result = subprocess.run(
+        [
+            "lark-cli", "base", "+record-list",
+            "--base-token", base_token,
+            "--table-id", table_id,
+            "--limit", "200",
+        ],
+        capture_output=True, text=True,
+    )
+    if result.returncode != 0:
+        sys.stderr.write(f"lark-cli error: {result.stderr}\n")
+        return []
+    payload = json.loads(result.stdout)
+    if not payload.get("ok"):
+        return []
+    data = payload["data"]
+    fields = data.get("fields", [])
+    rows = data.get("data", [])
+    return [dict(zip(fields, row)) for row in rows]
+
+
+def keyword_match(haystack: str, needles: list[str]) -> bool:
+    if not needles:
+        return False
+    h = (haystack or "").lower()
+    return any(n.lower().strip() in h for n in needles if n.strip())
+
+
+def render_markdown(ctx: dict) -> str:
+    out = []
+    s = ctx["student"]
+    out.append("### STUDENT")
+    if s:
+        out.append(
+            f"- {s.get('用户','?')} · CEFR {s.get('CEFR等级','?')} · "
+            f"goal: {s.get('学习目标','?')} · interests: {s.get('兴趣标签','?')}"
+        )
+        if s.get("备注"):
+            out.append(f"- note: {s['备注']}")
+    else:
+        out.append("- (no profile yet — run icebreaker)")
+
+    out.append("\n### LUMINA SELF (persona, locked)")
+    for d in ctx["diary_locked"]:
+        out.append(f"- **{d.get('条目','?')}** [{d.get('分类','?')}] {d.get('内容','')}")
+
+    if ctx["diary_recent"]:
+        out.append("\n### LUMINA SELF (recent reads / mood — fresh from her own life)")
+        for d in ctx["diary_recent"]:
+            out.append(f"- **{d.get('条目','?')}** [{d.get('分类','?')}] {d.get('内容','')}")
+
+    if ctx["logs"]:
+        out.append("\n### LAST CONVERSATIONS")
+        for log in ctx["logs"]:
+            line = f"- {log.get('日期','?')} · {log.get('主话题','?')}: {log.get('对话摘要','')}"
+            if log.get("留下的悬念"):
+                line += f"  ⚠ open thread: {log['留下的悬念']}"
+            out.append(line)
+
+    if ctx["due_review"]:
+        out.append("\n### DUE FOR REVIEW (sneak into today's prompt)")
+        for v in ctx["due_review"]:
+            out.append(
+                f"- ~~{v.get('原句/生词','?')}~~ → **{v.get('地道表达','?')}**  "
+                f"({v.get('类型','')})"
+            )
+
+    if ctx["topic_hits"]:
+        out.append("\n### TOPIC MEMORY (matched current keywords)")
+        for t in ctx["topic_hits"]:
+            line = (
+                f"- **{t.get('主题','?')}** [{t.get('分类','?')}] "
+                f"{t.get('事实/上下文','')}"
+            )
+            if t.get("Lumina 的视角"):
+                line += f"\n    Lumina's note: _{t['Lumina 的视角']}_"
+            out.append(line)
+    elif ctx["topic_recent"]:
+        out.append("\n### TOPIC MEMORY (no keyword hit — showing 3 most recent)")
+        for t in ctx["topic_recent"]:
+            out.append(
+                f"- **{t.get('主题','?')}** [{t.get('分类','?')}] "
+                f"{t.get('事实/上下文','')[:100]}…"
+            )
+
+    return "\n".join(out)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--keywords", default="",
+                    help="comma-separated keywords from current user turn")
+    ap.add_argument("--json", action="store_true", help="emit JSON instead of Markdown")
+    args = ap.parse_args()
+
+    keywords = [k for k in args.keywords.split(",") if k.strip()]
+    cfg = load_config()
+    bt = cfg["base_token"]
+    t = cfg["tables"]
+
+    students = lark_list(bt, t["student"])
+    diary = lark_list(bt, t["diary"])
+    logs = lark_list(bt, t["log"])
+    vocab = lark_list(bt, t["vocab"])
+    topics = lark_list(bt, t["topic"])
+
+    diary_locked = [d for d in diary if d.get("分类") in ("基础设定", "观点")]
+    diary_recent = [d for d in diary if d.get("分类") in ("近况", "读到的", "日常")]
+
+    logs_sorted = sorted(logs, key=lambda x: x.get("日期", ""), reverse=True)[:3]
+
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+    due_review = []
+    for v in vocab:
+        nxt = v.get("下次复习日期") or ""
+        if isinstance(nxt, str) and nxt and nxt[:10] <= today:
+            due_review.append(v)
+
+    topic_hits = [
+        tp for tp in topics
+        if keyword_match(tp.get("关键词", ""), keywords)
+        or keyword_match(tp.get("主题", ""), keywords)
+    ] if keywords else []
+    topic_recent = sorted(
+        topics, key=lambda x: x.get("最近提及", ""), reverse=True
+    )[:3] if not topic_hits else []
+
+    ctx = {
+        "student": students[0] if students else None,
+        "diary_locked": diary_locked,
+        "diary_recent": diary_recent,
+        "logs": logs_sorted,
+        "due_review": due_review,
+        "topic_hits": topic_hits,
+        "topic_recent": topic_recent,
+        "keywords": keywords,
+    }
+
+    if args.json:
+        print(json.dumps(ctx, ensure_ascii=False, indent=2))
+    else:
+        print(render_markdown(ctx))
+
+
+if __name__ == "__main__":
+    main()

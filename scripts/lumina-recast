@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""
+lumina-recast — leave a canonical-format Recast comment on a Lark doc.
+
+Wraps `lark-cli drive +add-comment` with the locked Lumina template:
+
+    🌿 Recast
+    ~~<original phrase>~~ → **<native version>**
+    <english one-liner why>
+    [中文一句话：<optional brief Chinese gloss>]
+
+Usage:
+  lumina-recast \\
+    --doc DOC_TOKEN_OR_URL \\
+    --target "I very like this movie" \\
+    --native "I really like this movie" \\
+    --why  "very can't modify verbs in English; use really or love"
+    [--zh   "副词修饰动词时不能用 very"]      # optional, see Lumina rules
+    [--full]                                  # full-doc encouragement instead
+
+Behavior:
+  · --target is the substring to anchor the comment to (passed as
+    --selection-with-ellipsis to lark-cli; supports 'start...end').
+  · If --full is set, target/native are ignored; --why becomes the body
+    and a 🌟 marker is used instead of 🌿 Recast.
+  · --zh is OFF by default. Only include when:
+      (a) the English explanation is genuinely clearer in Chinese
+      (b) user is at CEFR ≤ B1 or visibly tired
+      (c) the grammar rule is one Mandarin speakers consistently mistranslate.
+"""
+
+import argparse
+import json
+import subprocess
+import sys
+
+
+def lark(*args: str) -> dict:
+    result = subprocess.run(["lark-cli", *args], capture_output=True, text=True)
+    if not result.stdout.strip():
+        sys.stderr.write(f"❌ lark-cli no output\n   stderr: {result.stderr}\n")
+        sys.exit(1)
+    payload = json.loads(result.stdout)
+    if not payload.get("ok"):
+        err = payload.get("error", {})
+        sys.stderr.write(f"❌ lark-cli error: {err.get('message','?')}\n")
+        if err.get("hint"):
+            sys.stderr.write(f"   hint: {err['hint']}\n")
+        sys.exit(1)
+    return payload
+
+
+def build_recast_text(target: str, native: str, why: str, zh: str | None) -> str:
+    lines = [
+        "🌿 Recast",
+        f"~~{target}~~ → **{native}**",
+        why,
+    ]
+    if zh:
+        lines.append(f"中文一句话：{zh}")
+    return "\n".join(lines)
+
+
+def build_full_text(why: str, zh: str | None) -> str:
+    lines = ["🌟 " + why]
+    if zh:
+        lines.append(f"中文一句话：{zh}")
+    return "\n".join(lines)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--doc", required=True, help="document URL or token")
+    ap.add_argument("--target", help="exact substring to anchor; supports 'start...end' for long spans")
+    ap.add_argument("--native", help="the native-speaker version")
+    ap.add_argument("--why", required=True, help="english one-liner explanation")
+    ap.add_argument("--zh", help="optional brief Chinese gloss (use sparingly)")
+    ap.add_argument("--full", action="store_true", help="leave a full-doc encouragement instead of an inline recast")
+    args = ap.parse_args()
+
+    if args.full:
+        text = build_full_text(args.why, args.zh)
+        cli_args = [
+            "drive", "+add-comment",
+            "--doc", args.doc,
+            "--full-comment",
+            "--content", json.dumps([{"type": "text", "text": text}], ensure_ascii=False),
+        ]
+    else:
+        if not (args.target and args.native):
+            sys.exit("❌ --target and --native are required (omit them only if --full is set)")
+        text = build_recast_text(args.target, args.native, args.why, args.zh)
+        cli_args = [
+            "drive", "+add-comment",
+            "--doc", args.doc,
+            "--selection-with-ellipsis", args.target,
+            "--content", json.dumps([{"type": "text", "text": text}], ensure_ascii=False),
+        ]
+
+    payload = lark(*cli_args)
+    data = payload["data"]
+    print(f"✓ comment {data['comment_id']} on {data['doc_id']} ({data.get('comment_mode','?')})")
+    if data.get("anchor_block_id"):
+        print(f"  anchor block: {data['anchor_block_id']}")
+
+
+if __name__ == "__main__":
+    main()

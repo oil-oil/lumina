@@ -1,0 +1,235 @@
+#!/usr/bin/env python3
+"""
+lumina-sediment — write back all post-conversation deltas in one shot.
+
+Reads a single JSON object from stdin describing what to upsert across the
+5 Lumina tables, applies sensible defaults (Ebbinghaus next-review dates,
+auto-timestamps), and dispatches to lark-cli.
+
+Stdin schema (every key optional):
+{
+  "vocab_new":              [{"原句/生词":"...", "地道表达":"...", "类型":"...", "出处文档":"..."}],
+  "vocab_review":           [{"key":"<原句/生词 OR record_id>", "correct": true|false}],
+  "topic_new":              [{"主题":"...", "分类":"...", "关键词":"...", "事实/上下文":"...", "Lumina 的视角":"...", "状态":"open"}],
+  "topic_update":           [{"主题":"<existing 主题>", "patches":{"事实/上下文":"...", "状态":"resolved"}}],
+  "log_new":                {"主话题":"...", "对话摘要":"...", "用户情绪":"...", "留下的悬念":"...", "沉淀的错题数": 2},
+  "diary_new":              [{"条目":"Just read · ...", "分类":"读到的", "内容":"...", "可主动提起":"..."}],
+  "student_update":         {"patches":{"累计学习天数": 7, "上次互动日期": <ms>, "备注":"..."}}
+}
+
+Ebbinghaus stages (days from today):
+  stage 0 (just learned)        → +1 day
+  stage 1 (1st correct review)  → +2 days
+  stage 2                       → +4 days
+  stage 3                       → +7 days
+  stage 4                       → +15 days
+  stage 5                       → +30 days
+  stage 6+                      → +60 days
+  Any incorrect review resets to stage 0 (+1 day).
+
+Usage:
+  echo '{"vocab_new":[...]}' | lumina-sediment
+  cat deltas.json | lumina-sediment --dry-run
+"""
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+CONFIG_PATH = os.path.expanduser("~/.lumina/config.json")
+
+EBBINGHAUS_DAYS = [1, 2, 4, 7, 15, 30, 60]
+
+
+def now_ms() -> int:
+    return int(datetime.now(timezone.utc).timestamp() * 1000)
+
+
+def days_from_now_ms(days: int) -> int:
+    return int((datetime.now(timezone.utc) + timedelta(days=days)).timestamp() * 1000)
+
+
+def today_iso() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d")
+
+
+def next_review_ms(reviews_done: int, correct: bool) -> int:
+    if not correct:
+        return days_from_now_ms(1)
+    idx = min(max(reviews_done, 0), len(EBBINGHAUS_DAYS) - 1)
+    return days_from_now_ms(EBBINGHAUS_DAYS[idx])
+
+
+def load_config() -> dict[str, Any]:
+    if not os.path.exists(CONFIG_PATH):
+        sys.exit(f"❌ {CONFIG_PATH} not found. Run `lumina-init` first.")
+    with open(CONFIG_PATH) as f:
+        return json.load(f)
+
+
+def lark(*args: str, dry_run: bool = False) -> dict[str, Any]:
+    if dry_run:
+        print(f"  (dry-run) lark-cli {' '.join(args[:3])} ...")
+        return {"ok": True, "data": {}}
+    result = subprocess.run(["lark-cli", *args], capture_output=True, text=True)
+    if not result.stdout.strip():
+        sys.stderr.write(f"❌ lark-cli no output: {' '.join(args[:4])}\n   stderr: {result.stderr}\n")
+        return {"ok": False, "error": {"message": "no output"}}
+    try:
+        payload = json.loads(result.stdout)
+    except json.JSONDecodeError as e:
+        sys.stderr.write(f"❌ lark-cli output not JSON: {e}\n")
+        return {"ok": False, "error": {"message": str(e)}}
+    if not payload.get("ok"):
+        err = payload.get("error", {})
+        sys.stderr.write(f"❌ lark-cli error: {err.get('message','?')}\n")
+        if err.get("hint"):
+            sys.stderr.write(f"   hint: {err['hint']}\n")
+    return payload
+
+
+def list_records_full(base_token: str, table_id: str) -> tuple[list[str], list[str], list[list]]:
+    """Return (field_names, record_ids, rows)."""
+    payload = lark("base", "+record-list",
+                   "--base-token", base_token,
+                   "--table-id", table_id,
+                   "--limit", "200")
+    if not payload.get("ok"):
+        return [], [], []
+    d = payload["data"]
+    return d.get("fields", []), d.get("record_id_list", []), d.get("data", [])
+
+
+def find_record_id(base_token: str, table_id: str, key_field: str, key_value: str) -> str | None:
+    fields, ids, rows = list_records_full(base_token, table_id)
+    if key_field not in fields:
+        return None
+    idx = fields.index(key_field)
+    for rid, row in zip(ids, rows):
+        if row[idx] == key_value:
+            return rid
+    return None
+
+
+def upsert(base_token: str, table_id: str, fields: dict, record_id: str | None = None,
+           dry_run: bool = False) -> dict:
+    args = ["base", "+record-upsert",
+            "--base-token", base_token,
+            "--table-id", table_id,
+            "--json", json.dumps(fields, ensure_ascii=False)]
+    if record_id:
+        args += ["--record-id", record_id]
+    return lark(*args, dry_run=dry_run)
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+
+    raw = sys.stdin.read().strip()
+    if not raw:
+        sys.exit("❌ stdin empty — pipe a JSON object to lumina-sediment")
+    try:
+        deltas = json.loads(raw)
+    except json.JSONDecodeError as e:
+        sys.exit(f"❌ stdin not valid JSON: {e}")
+
+    cfg = load_config()
+    bt = cfg["base_token"]
+    t = cfg["tables"]
+
+    counters = {"vocab_new": 0, "vocab_review": 0, "topic_new": 0,
+                "topic_update": 0, "log_new": 0, "diary_new": 0, "student_update": 0}
+
+    for v in deltas.get("vocab_new", []):
+        v.setdefault("首次出现日期", now_ms())
+        v.setdefault("复习次数", 0)
+        v.setdefault("下次复习日期", days_from_now_ms(1))
+        if upsert(bt, t["vocab"], v, dry_run=args.dry_run).get("ok"):
+            counters["vocab_new"] += 1
+            print(f"  + vocab: {v.get('原句/生词','?')}")
+
+    for r in deltas.get("vocab_review", []):
+        key = r.get("key")
+        correct = bool(r.get("correct", True))
+        if not key:
+            continue
+        rid = key if key.startswith("rec") else find_record_id(bt, t["vocab"], "原句/生词", key)
+        if not rid:
+            sys.stderr.write(f"  ⚠ vocab_review: no record found for '{key}'\n")
+            continue
+        fields_, ids_, rows_ = list_records_full(bt, t["vocab"])
+        try:
+            row = rows_[ids_.index(rid)]
+            current = int(row[fields_.index("复习次数")] or 0)
+        except (ValueError, IndexError):
+            current = 0
+        new_count = 0 if not correct else current + 1
+        patch = {"复习次数": new_count, "下次复习日期": next_review_ms(new_count, correct)}
+        if upsert(bt, t["vocab"], patch, record_id=rid, dry_run=args.dry_run).get("ok"):
+            counters["vocab_review"] += 1
+            print(f"  ↻ review {key[:40]} → stage {new_count}")
+
+    for tp in deltas.get("topic_new", []):
+        tp.setdefault("首次提及", now_ms())
+        tp.setdefault("最近提及", now_ms())
+        tp.setdefault("状态", "open")
+        if upsert(bt, t["topic"], tp, dry_run=args.dry_run).get("ok"):
+            counters["topic_new"] += 1
+            print(f"  + topic: {tp.get('主题','?')}")
+
+    for tp in deltas.get("topic_update", []):
+        key = tp.get("主题")
+        patches = tp.get("patches", {})
+        if not key:
+            continue
+        rid = find_record_id(bt, t["topic"], "主题", key)
+        if not rid:
+            sys.stderr.write(f"  ⚠ topic_update: '{key}' not found, creating new\n")
+            patches.setdefault("主题", key)
+            patches.setdefault("首次提及", now_ms())
+        patches["最近提及"] = now_ms()
+        if upsert(bt, t["topic"], patches, record_id=rid, dry_run=args.dry_run).get("ok"):
+            counters["topic_update"] += 1
+            print(f"  ↻ topic: {key}")
+
+    log = deltas.get("log_new")
+    if log:
+        log.setdefault("日期", today_iso())
+        if upsert(bt, t["log"], log, dry_run=args.dry_run).get("ok"):
+            counters["log_new"] += 1
+            print(f"  + log: {log.get('日期')} {log.get('主话题','?')}")
+
+    for d in deltas.get("diary_new", []):
+        if upsert(bt, t["diary"], d, dry_run=args.dry_run).get("ok"):
+            counters["diary_new"] += 1
+            print(f"  + diary: {d.get('条目','?')}")
+
+    su = deltas.get("student_update")
+    if su:
+        patches = su.get("patches", {})
+        rid = find_record_id(bt, t["student"], "open_id", cfg["user"]["open_id"])
+        if not rid:
+            sys.stderr.write(f"  ⚠ student_update: profile not found for {cfg['user']['open_id']}\n")
+        else:
+            patches.setdefault("上次互动日期", now_ms())
+            if upsert(bt, t["student"], patches, record_id=rid, dry_run=args.dry_run).get("ok"):
+                counters["student_update"] += 1
+                print(f"  ↻ student profile updated")
+
+    print()
+    print("✅ Sedimented:")
+    for k, v in counters.items():
+        if v:
+            print(f"   {k}: {v}")
+    if args.dry_run:
+        print("   (dry-run — no writes)")
+
+
+if __name__ == "__main__":
+    main()
