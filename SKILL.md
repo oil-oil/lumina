@@ -169,8 +169,6 @@ lumina-init --reuse-base T # 复用已有 Base，只补缺的表/字段（idempo
   [Lumina 口吻 1-2 句]
 
   👉 [Today's practice](DOC_URL)
-
-  — Lumina
   EOF
   )"
   ```

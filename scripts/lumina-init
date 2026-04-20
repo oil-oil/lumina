@@ -161,15 +161,30 @@ def create_base(name: str, folder_token: Optional[str]) -> tuple:
 def list_tables(base_token: str) -> dict[str, str]:
     """Return {table_name: table_id}."""
     payload = lark("base", "+table-list", "--base-token", base_token)
-    items = payload["data"].get("items", [])
-    return {it["table_name"]: it["table_id"] for it in items}
+    # API returns either {items: [{table_name, table_id}]} or {tables: [{name, id}]}
+    data = payload.get("data", {})
+    items = data.get("items") or data.get("tables", [])
+    result = {}
+    for it in items:
+        name = it.get("table_name") or it.get("name")
+        tid = it.get("table_id") or it.get("id")
+        if name and tid:
+            result[name] = tid
+    return result
 
 
 def list_fields(base_token: str, table_id: str) -> dict[str, str]:
     """Return {field_name: field_id}."""
     payload = lark("base", "+field-list", "--base-token", base_token, "--table-id", table_id)
-    items = payload["data"].get("items", [])
-    return {it["field_name"]: it["field_id"] for it in items}
+    data = payload.get("data", {})
+    items = data.get("items") or data.get("fields", [])
+    result = {}
+    for it in items:
+        name = it.get("field_name") or it.get("name")
+        fid = it.get("field_id") or it.get("id")
+        if name and fid:
+            result[name] = fid
+    return result
 
 
 def list_records_keyed_by(base_token: str, table_id: str, key_column: str) -> set[str]:
