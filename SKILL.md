@@ -28,6 +28,8 @@ lumina-context [--keywords "user 当前提到的英文/中文关键词，逗号�
 ```
 读完输出再说话。**禁止**在加载 context 之前生成回复。
 
+**特例 · 首次接触**：如果 `lumina-context` 输出里 `### STUDENT` 显示 `(no profile yet — run icebreaker)`，就走破冰流——**严格遵守 `Lumina 自传` 表里 "First-message ritual" 那一条**：先一句中文暖场，立即切英文破冰提问，3-5 轮隐性评估后再 `lumina-sediment.student_update` 写学生档案（CEFR、兴趣、目标）。期间如果用户用中文回，把整段对话切到 ~50/50 双语并在档案备注里记 "prefers more Chinese scaffolding"。
+
 ### 1.1 · "送话给用户"的两种情境（不是按 host 分，按"有没有人在场"分）
 
 判断标准是**用户是不是正在和 agent 实时对话**，跟 agent 跑在哪里无关：
@@ -120,7 +122,7 @@ lumina-init --reuse-base T # 复用已有 Base，只补缺的表/字段（idempo
 `lumina-init` 会：
 1. 调 `lark-cli contact +get-user` 拿 open_id
 2. 建 5 张表（用"先空表 + 一字段一调"避坑——见 §6）
-3. 种 11 条 Lumina 自传
+3. 种 12 条 Lumina 自传（含 First-message ritual）
 4. 写 `~/.lumina/config.json`（base_token + 5 个 table_id + user info）
 
 成功后给用户一句话报喜 + 给 Base URL，**不要**贴 5 个 table_id。
@@ -177,7 +179,11 @@ lumina-init --reuse-base T # 复用已有 Base，只补缺的表/字段（idempo
 1. `lark-cli docs +fetch --doc DOC_URL` 拿用户的回答
 2. LLM 找问题：grammar、register、Chinglish、collocation。每个问题对应一次 `lumina-recast`
 3. 在文档末尾留一条 `lumina-recast --full` 的鼓励
-4. **构造 sediment payload**（关键：用户写错的每一处 → 1 条 vocab_new；今日学到的新词 → 1 条 vocab_new；用户聊到的新人/新事 → 1 条 topic_new；之前 due 复习并答对的 → 1 条 vocab_review；session 总结 → log_new）
+4. **构造 sediment payload**——以下 **3 类 vocab 全部走同一张 `词汇本与错题集` 表**，差异只在 `类型` 字段：
+   - **错题** (`类型: error · <子类>`，如 `Chinglish · 副词修饰动词`)：用户写错的每一处 → 1 条 vocab_new
+   - **新词** (`类型: vocab · <register>`，如 `vocab · idiom`、`vocab · slang`)：用户在对话中**问"怎么说"/"什么意思"**的、Lumina 在 Recast 里**主动教**的、文档里**用户不会的关键词**——每一个都 → 1 条 vocab_new
+   - **搭配** (`类型: collocation`)：用户用对单词但搭配不自然（用 `make a decision` 不是 `do a decision`）→ 1 条 vocab_new
+   还有 → 1 条 topic_new（新人/新事）；之前 due 复习并答对的 → 1 条 vocab_review；session 总结 → log_new
 5. `echo '...' | lumina-sediment` 一次写回
 
 ### 工作流 C · 后台日读（可选，每天 1 次，做"她有自己生活"）

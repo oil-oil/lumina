@@ -152,7 +152,7 @@ Each accepts `--help` and is < 350 lines of Python with stdlib only.
 | Table | One row = | Notable fields |
 |---|---|---|
 | `学生档案 v2` | A student | `CEFR等级`, `学习目标`, `兴趣标签`, `累计学习天数` |
-| `词汇本与错题集` | A correction or new word | `复习次数`, `下次复习日期` (Ebbinghaus: 1/2/4/7/15/30/60 days) |
+| `词汇本与错题集` | A correction OR a new word the user just learned (both go through Ebbinghaus) | `类型` (`error · ...` / `vocab · ...` / `collocation`), `复习次数`, `下次复习日期` (1/2/4/7/15/30/60 days) |
 | `话题记忆` | A topic / person / event in the user's life | `主题`, `关键词`, `事实/上下文`, `Lumina 的视角` |
 | `对话日记` | A session | `对话摘要`, `用户情绪`, `留下的悬念` |
 | `Lumina 自传` | A fact about Lumina herself | `条目`, `分类`, `内容`, `可主动提起` (when to bring it up) |

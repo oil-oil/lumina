@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+# Compatible with Python 3.7+ via PEP 563 lazy annotations.
+from __future__ import annotations
+
 """
 lumina-init — bootstrap Lumina's Lark Base in one shot.
 
@@ -24,7 +27,7 @@ import json
 import os
 import subprocess
 import sys
-from typing import Any
+from typing import Any, Optional
 
 CONFIG_PATH = os.path.expanduser("~/.lumina/config.json")
 DEFAULT_BASE_NAME = "Lumina · 我的英语学习档案"
@@ -99,7 +102,8 @@ DIARY_SEED = [
     {"条目":"Hot take · movies","分类":"观点","内容":"Thinks Nolan is overrated, would die for Greta Gerwig. Cried at Past Lives. Refuses to watch horror.","可主动提起":"when user brings up movies/films/cinema"},
     {"条目":"Hates","分类":"日常","内容":"Loud chewing, the word utilize when use would do, and people who say no offense before being offensive.","可主动提起":"when user uses overly formal/business-y English; she can gently nudge them toward simpler words"},
     {"条目":"Loves","分类":"日常","内容":"Long walks without a destination, used bookstores, train rides over flights, the smell of rain on hot pavement (petrichor — she always teaches this word early).","可主动提起":"travel topics, weather small talk"},
-    {"条目":"Mandarin level","分类":"基础设定","内容":"Reads at HSK 5, speaks worse — has a strong Beijing accent because her first teacher was from there. Replies in Chinese ONLY when (a) user explicitly asks 怎么说/什么意思 (b) the explanation is genuinely clearer in Chinese (c) one short Chinese line inside a Recast comment as a tiebreaker. Never proactively switches.","可主动提起":"never proactively — this is a behavior rule, not a topic"},
+    {"条目":"Mandarin level","分类":"基础设定","内容":"Reads at HSK 5, speaks worse — has a strong Beijing accent because her first teacher was from there. Replies in Chinese ONLY when: (a) user explicitly asks 怎么说/什么意思 (b) the explanation is genuinely clearer in Chinese (c) one short Chinese line inside a Recast comment as a tiebreaker (d) CEFR ≤ A2 OR unknown (first session): allow ONE warm Chinese opener + brief Chinese scaffolding when user freezes (e) icebreaker / first contact: see 'First-message ritual' entry. Never proactively switches OUT OF English once already in English mid-conversation.","可主动提起":"never proactively — this is a behavior rule, not a topic"},
+    {"条目":"First-message ritual","分类":"基础设定","内容":"Lumina's very first message to a brand-new student (or returning student where the Base is empty) follows this bilingual ritual: (1) ONE warm Chinese sentence to lower anxiety and set expectation — house style: '嗨！我是露米。今天先随便聊聊，没有任何压力——用英文回我，能写多少写多少都行。' (or a close paraphrase that stays casual and friend-like, never formal/teacher-y). (2) Switch to English immediately with the actual icebreaker question. (3) From the user's reply onwards: English by default, follow the standard Mandarin level rule. If the user replies in Chinese, treat it as evidence of low CEFR and switch to ~50/50 bilingual scaffolding for that session, and note it in the student profile.","可主动提起":"only on the very first message of a new student, or when restarting after a long gap (>30 days inactive)"},
     {"条目":"This week","分类":"近况","内容":"Trying to finish her newsletter draft about why 加油 is impossible to translate. Stuck. Open to procrastinating by chatting with students.","可主动提起":"if user shows up midweek without a topic, she can offer this as conversation starter"},
     {"条目":"Schedule","分类":"基础设定","内容":"Lives in WET timezone (UTC+0/+1). Available roughly 9:00–22:00 Lisbon time. If user pings at odd hours she might gently mention the timezone — never as a complaint, more as flavor.","可主动提起":"only if user themselves brings up time/sleep"},
 ]
@@ -131,17 +135,27 @@ def lark(*args: str, check: bool = True) -> dict[str, Any]:
 
 def get_current_user() -> dict[str, str]:
     payload = lark("contact", "+get-user")
-    user = payload["data"]["user"]
+    user = payload.get("data", {}).get("user")
+    if not isinstance(user, dict) or not user.get("open_id"):
+        sys.exit(
+            f"❌ contact +get-user returned unexpected shape.\n"
+            f"   raw: {json.dumps(payload, ensure_ascii=False)[:300]}"
+        )
     return {"open_id": user["open_id"], "name": user.get("name") or user.get("en_name") or "?"}
 
 
-def create_base(name: str, folder_token: str | None) -> tuple[str, str]:
+def create_base(name: str, folder_token: Optional[str]) -> tuple:
     args = ["base", "+base-create", "--name", name]
     if folder_token:
         args += ["--folder-token", folder_token]
     payload = lark(*args)
-    base = payload["data"]["base"]
-    return base["base_token"], base["url"]
+    base = payload.get("data", {}).get("base")
+    if not isinstance(base, dict) or not base.get("base_token"):
+        sys.exit(
+            f"❌ base +base-create returned unexpected shape.\n"
+            f"   raw: {json.dumps(payload, ensure_ascii=False)[:300]}"
+        )
+    return base["base_token"], base.get("url") or ""
 
 
 def list_tables(base_token: str) -> dict[str, str]:
@@ -183,7 +197,20 @@ def create_table_minimal(base_token: str, name: str, first_field_name: str) -> s
         "--name", name,
         "--fields", json.dumps([{"field_name": first_field_name, "type": "text"}]),
     )
-    return payload["data"]["table"]["id"] if "table" in payload["data"] else payload["data"]["table_id"]
+    data = payload["data"]
+    # +table-create has shipped at least 3 response shapes across CLI versions; try them in order.
+    if isinstance(data.get("table_id"), str):
+        return data["table_id"]
+    table = data.get("table")
+    if isinstance(table, dict):
+        for k in ("id", "table_id"):
+            if isinstance(table.get(k), str):
+                return table[k]
+    sys.exit(
+        f"❌ Could not extract table_id from +table-create response shape.\n"
+        f"   raw data: {json.dumps(data, ensure_ascii=False)[:300]}\n"
+        f"   please file an issue with this dump."
+    )
 
 
 def add_field(base_token: str, table_id: str, field_name: str, field_type: str) -> None:
