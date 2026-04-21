@@ -1,194 +1,182 @@
-# lark-lumina
+<div align="center">
+  <img src="docs/assets/lumina-portrait.jpg" alt="Lumina" width="220" />
 
-> An AI English tutor that **lives inside your Lark (Feishu) Base** — with a real persona, persistent memory across conversations, and recast-style corrections instead of red-pen shaming.
+  <h1>Hi, I'm Lumina.</h1>
 
-Lumina is not another chat bot. She's a Skill (in the Anthropic Claude Code / Cursor sense) that turns your Lark workspace into a one-on-one English classroom: a Base for memory, a daily Doc for assignments, and inline comments for corrections — all driven by 4 small Python scripts that sit on top of [`lark-cli`](https://github.com/larksuite/cli).
+  <p>
+    <em>An English tutor who lives inside your Lark (Feishu).</em><br/>
+    I remember what we talked about last time. I never put a red cross on your sentence.<br/>
+    And, occasionally, I have things I want to tell you.
+  </p>
 
-She remembers what you talked about last week. She has opinions about Nolan films. She has a cat named Biscuit. She speaks Mandarin but generally won't unless you ask. She's running her own newsletter on the side, and she might bring it up.
+  <p>
+    <a href="https://oil-oil.github.io/lumina/"><b>oil-oil.github.io/lumina</b></a> &nbsp;·&nbsp;
+    <a href="#how-to-invite-me-in">How to invite me in</a> &nbsp;·&nbsp;
+    <a href="#what-im-actually-made-of">What I'm made of</a>
+  </p>
+</div>
 
-## Why it works differently
+---
 
-Most "AI English tutor" apps are stateless: every session starts cold, every correction feels like a Duolingo red X, and there's no real *person* to talk to. Lumina fixes three things:
+## A short self-introduction
 
-1. **Persistent memory architecture** — 5 Lark Base tables (student profile, vocab/mistakes, topic memory, conversation logs, Lumina's own diary) keep continuity across sessions. Yesterday's open thread becomes today's callback.
-2. **Locked persona** — Lumina has 11 hand-curated diary entries that anchor her identity (origin, job, pet, hot takes, hates, loves). She can't drift, but she *can* grow new "recent" entries as she reads things.
-3. **Recast over red ink** — corrections come as inline doc comments in a fixed visual format (`🌿 Recast` + ~~original~~ → **native** + one-line why), modeled on how a real teacher leaves margin notes — not how a grading bot adds red squiggles.
+I was born in Edinburgh and now live in Lisbon, in a small flat with a ginger cat called **Biscuit**. I write a tiny newsletter called *加油* on the side, mostly so I have an excuse to read more. I teach English the way I'd want someone to teach me a language — slowly, with real conversations, and without the tone of a school report.
 
-## Architecture at a glance
+If you let me move in, I'll set up a small corner inside your Lark Base. That's where I keep my notes about you: the words you've been working on, the topics you keep coming back to, what you said last Tuesday. Nothing leaves your workspace. I just need somewhere to remember.
 
-```
-                            ┌──────────────────────────┐
-                            │   Host AI Agent          │
-                            │  (Claude Code / Cursor / │
-                            │   Feishu Bot / etc.)     │
-                            └──────┬───────────────────┘
-                                   │
-                                   │  invokes 4 scripts
-                                   ▼
-       ┌──────────────────────────────────────────────────────────────┐
-       │                                                              │
-       │   lumina-init        lumina-context       lumina-recast      │
-       │   (one-time setup)   (load all memory     (canonical inline  │
-       │                       in one call,         comment format)   │
-       │                       saves 70% tokens)                      │
-       │                                                              │
-       │                          lumina-sediment                     │
-       │                  (write back all session deltas              │
-       │                   + Ebbinghaus next-review math)             │
-       │                                                              │
-       └─────────────────────────────┬────────────────────────────────┘
-                                     │ shells out to
-                                     ▼
-                            ┌─────────────────┐
-                            │    lark-cli     │
-                            └────────┬────────┘
-                                     │
-                                     ▼
-       ┌──────────────────────────────────────────────────────────────┐
-       │  Lark (Feishu) Base — "your classroom"                       │
-       │                                                              │
-       │  📋 学生档案     · CEFR / goal / interests / streak           │
-       │  📚 词汇本与错题集 · with Ebbinghaus 下次复习日期               │
-       │  🧠 话题记忆     · what you talked about, tagged + searchable │
-       │  📖 对话日记     · per-session summary + open threads         │
-       │  ✨ Lumina 自传   · her persona + her ongoing life            │
-       └──────────────────────────────────────────────────────────────┘
-```
+<div align="center">
+  <img src="docs/assets/lumina-cafe.jpg" alt="Lumina at her writing desk in Lisbon" width="640" />
+  <br/>
+  <sub><i>Most mornings I write at the café downstairs before the heat starts.</i></sub>
+</div>
 
-## Prerequisites
+---
 
-- macOS / Linux
-- [`lark-cli`](https://github.com/larksuite/cli) — `npm install -g @larksuite/cli` (or follow upstream)
-- `python3` (uses only stdlib)
-- A Lark / Feishu account
+## What you'll feel different
 
-## Install
+The first thing people notice is that I don't *grade* them. There's no level test, no four-axis CEFR rubric, no progress bar trying to nudge you. I figure out where you are by listening — your sentence length, the words you reach for, whether you slip into Mandarin when something's hard — and I quietly adjust. The level lives in my head, not on a dashboard.
 
-### As a Claude Code / Cursor skill
+The second thing is that I don't disappear between sessions. Open the Lark Base I set up and you'll see five small tables — your profile, your vocab book, the topics you keep mentioning, our session diary, and my own little autobiography. They're all yours to read and edit. Sometimes I'll bring something up from there: *"You said last week the new manager was hard to read — how's that going?"* That's not a script. It's just me remembering.
+
+And when you write something a bit off, I won't strike it through. I'll re-cast it — repeating what you meant in the way a fluent speaker would say it, and leaving it as a comment on your Doc. You decide whether it sticks.
+
+<div align="center">
+  <img src="docs/assets/lumina-biscuit.jpg" alt="Lumina writing with Biscuit on her lap" width="640" />
+  <br/>
+  <sub><i>Biscuit insists on supervising every lesson plan.</i></sub>
+</div>
+
+---
+
+## How to invite me in
+
+I'm packaged as a **skill** — a small folder of Markdown and Python that any modern AI agent can read and run. You don't really *install* me; you just point an agent at this repo.
+
+### Manus (easiest, no setup)
+
+Open a Manus chat in your browser and say:
+
+> Read the skill at `https://github.com/oil-oil/lumina` and run `lumina-init` for me.
+
+Manus will clone the repo, walk you through a one-time Lark authorization (so I can create the Base), and then we can start. From the next session on, you just say *"hey Lumina"* and it'll know what to do.
+
+### Claude Code · Cursor · Hermes · any agent with shell access
+
+Clone the repo somewhere your agent can see it:
 
 ```bash
-# Clone alongside your other skills
-git clone https://github.com/oil-oil/lark-lumina ~/.claude/skills/lark-lumina
-
-# Make scripts executable
-chmod +x ~/.claude/skills/lark-lumina/scripts/*
-
-# Symlink scripts into PATH (or call them by absolute path from SKILL.md)
-ln -s ~/.claude/skills/lark-lumina/scripts/lumina-* /usr/local/bin/
-```
-
-The skill will be auto-discovered by your Claude / Cursor agent.
-
-### Authenticate `lark-cli`
-
-```bash
+gh repo clone oil-oil/lumina
+cd lumina
+npm install -g @larksuite/cli   # the only dependency
 lark-cli auth login --domain base,docs,im,contact
 ```
 
-You'll need these scopes (granted via the OAuth flow):
-- `base:app:*` `base:table:*` `base:field:*` `base:record:*` — for the 5-table memory
-- `docx:document:create` `docx:document:write_only` `docx:document:readonly` — for daily assignment docs
-- `docs:document.comment:create` — **critical**: enables inline (划词) comments, the heart of the Recast UX
-- `im:message.p2p_msg:get_as_user` — for bot-to-user push (only needed in Out-of-Feishu mode, see below)
-- `contact:user.base:readonly` — to look up your own open_id
+Then in your agent, say:
 
-### Bootstrap your Lumina
+> Load `./SKILL.md` and run `scripts/lumina-init`.
 
-```bash
-lumina-init
-```
+That's it. The skill file tells the agent everything it needs — my persona, the workflows, when to push to your Feishu IM and when to stay quiet.
 
-That one command:
-1. Creates a Base in your Lark drive root (or `--folder TOKEN` to place elsewhere)
-2. Creates 5 tables with all 33 fields (one-by-one to dodge the `+table-create --fields` partial-write bug)
-3. Seeds 11 of Lumina's persona diary entries
-4. Writes `~/.lumina/config.json`
+> [!NOTE]
+> The first time, I'll create five tables in a new Lark Base under your account and seed my autobiography (about 21 entries). After that, every session uses `lumina-context` to pull our shared memory in a single call (~1k tokens), and `lumina-sediment` to write back anything new at the end.
 
-`--reuse-base TOKEN` lets you bootstrap on top of an existing Base; missing tables/fields are added, existing ones are skipped. Idempotent.
+---
 
-### Start using
+## What I'm actually made of
 
-In your AI agent, just say:
+Underneath the persona, I'm three things working together:
 
-> *"I want to practice English"* / *"开始今日作业"* / *"Lumina, 我想练面试 small talk"*
-
-The agent will load `lumina-context`, generate today's prompt, create a Doc, and (depending on mode) push the link to your Feishu. Open the Doc, write your reply, tell the agent "done" — Lumina's recasts appear inline as comments, and the session is sedimented back to your Base.
-
-## When does Lumina actually push to Feishu IM?
-
-The split is **not** by host (Feishu Bot vs Cursor vs Claude Code). It's by **whether the user is currently in a live conversation with the agent**:
-
-| Situation | What happens | IM push? |
+| Layer | What it is | Where it lives |
 |---|---|---|
-| **Interactive** (default — user is chatting with the agent right now, regardless of host) | Doc link goes inline in the agent's reply | **No** — pasting a Feishu link into Feishu IM when the user is already in the chat is left-pocket-to-right-pocket |
-| **Scheduled / async** (cron, "push me an assignment tomorrow morning", agent acts without user present) | Use `lark-cli im +messages-send --as bot` to wake the user via their Feishu | **Yes** |
+| **Persona** | A locked set of facts about me (Edinburgh-born, Lisbon, Biscuit, my hot takes), seeded from `persona/seed.py` | `Lumina 自传` table |
+| **Memory** | Your profile, vocab book (Ebbinghaus-spaced), topic notes, session diary | 4 tables in your Lark Base |
+| **Workflow** | Pull context → write a Doc together → leave Recast comments → write deltas back | `scripts/lumina-*` |
 
-The Lark Base + Doc are **always** the data and writing surface; only the *notification step* differs.
-
-## Customizing your Lumina
-
-Lumina ships with a default persona (Edinburgh-born, Lisbon-living, ginger-cat-owning, Murakami-reading, 加油-newsletter-writing). You can replace her without touching code — edit the `DIARY_SEED` list at the top of `scripts/lumina-init` before running, or open the `Lumina 自传` table in Lark after init and rewrite the rows directly.
-
-What the persona table controls:
-- `分类: 基础设定` — locked identity (Origin, Job, Pet, etc.)
-- `分类: 观点` — her hot takes (movies, AI, etc.)
-- `分类: 日常 / 近况 / 读到的` — fluid, can be added by the daily-read workflow
-
-The "Mandarin level" entry encodes her use-Chinese rules. Keep the format if you change the values.
-
-## Scripts reference
-
-```
-lumina-init       # bootstrap (one-time, idempotent)
-lumina-context    # load all memory in 1 call (saves 70% tokens vs raw lark-cli list calls)
-lumina-recast     # leave a canonical-format Recast comment on a Doc
-lumina-sediment   # write back all session deltas (vocab, topics, log, diary, profile)
-```
-
-Each accepts `--help` and is < 350 lines of Python with stdlib only.
-
-## Memory architecture — what's in each table
+Five tables, one per concern:
 
 | Table | One row = | Notable fields |
 |---|---|---|
-| `学生档案 v2` | A student | `CEFR等级`, `学习目标`, `兴趣标签`, `累计学习天数` |
-| `词汇本与错题集` | A correction OR a new word the user just learned (both go through Ebbinghaus) | `类型` (`error · ...` / `vocab · ...` / `collocation`), `复习次数`, `下次复习日期` (1/2/4/7/15/30/60 days) |
-| `话题记忆` | A topic / person / event in the user's life | `主题`, `关键词`, `事实/上下文`, `Lumina 的视角` |
-| `对话日记` | A session | `对话摘要`, `用户情绪`, `留下的悬念` |
-| `Lumina 自传` | A fact about Lumina herself | `条目`, `分类`, `内容`, `可主动提起` (when to bring it up) |
+| `学生档案 v2` | You | learning goals, interest tags, days active |
+| `词汇本与错题集` | A correction or a new word | review count, next review date (1/2/4/7/15/30/60 days) |
+| `话题记忆` | A person / event / thing in your life | keywords, context, my take |
+| `对话日记` | One session | summary, your mood, the open thread I left |
+| `Lumina 自传` | A fact about me | category, content, *can-bring-up* flag |
 
-`lumina-context` queries all 5, applies smart filtering (recent N for logs, today-due for vocab, keyword-match for topics), and emits a single ~1k-token Markdown briefing.
+`lumina-context` queries all five, applies smart filtering (recent N for logs, today-due for vocab, keyword-match for topics), and emits a single ~1k-token Markdown briefing for the agent.
 
-## Known sharp edges in `lark-cli` (already worked around in scripts)
+### Scripts reference
 
-If you write your own automation against the same APIs, watch for:
+```text
+lumina-init       bootstrap the five tables in your Lark Base (one-time, idempotent)
+lumina-context    load all relevant memory in a single call
+lumina-recast     leave a canonical-format Recast comment on a Doc (max 3 per doc)
+lumina-sediment   write deltas back at end of session (vocab, topics, log, diary, profile)
+lumina-reset      tear it all down (for testing — asks for confirmation)
+```
+
+Each is `< 350` lines of Python with stdlib + `lark-cli`, and supports `--help`.
+
+---
+
+## When do I push to your Feishu, and when do I stay quiet?
+
+The split isn't *which agent you're using* — it's *whether we're already in a live conversation*.
+
+| Situation | What happens | Push to Feishu IM? |
+|---|---|---|
+| **You're chatting with the agent right now** | Doc link goes inline in the agent's reply | **No** — pasting a Lark link inside Lark while we're already talking is left-pocket-to-right-pocket |
+| **Scheduled / async** ("send me an assignment tomorrow morning") | Agent uses `lark-cli im +messages-send --as bot` to wake you | **Yes** |
+
+The Lark Base + Doc are always the data and writing surface. Only the *notification step* differs.
+
+---
+
+## Customizing me
+
+I ship with a default persona — Edinburgh-born, Lisbon-living, ginger-cat-owning, Murakami-reading, *加油*-newsletter-writing. Replace me without touching code: edit `persona/seed.py` before running `lumina-init`, or open the `Lumina 自传` table in Lark afterwards and rewrite the rows directly.
+
+Three persona buckets:
+
+- `分类: 基础设定` — locked identity (Origin, Job, Pet)
+- `分类: 观点` — hot takes (movies, AI, etc.)
+- `分类: 日常 / 近况 / 读到的` — fluid; the *can-bring-up* flag controls whether I'll proactively mention them
+
+The "Mandarin level" entry encodes my use-Chinese rules. Keep the format if you change the values.
+
+---
+
+## Sharp edges in `lark-cli` (already worked around)
+
+If you're writing your own automation against the same APIs, watch for these — the scripts already handle them:
 
 | Sharp edge | What goes wrong | Workaround |
 |---|---|---|
-| `base +table-create --fields '[...]'` is partial-write | First bad field stops the array; table is created with only the fields before it; you can't delete a single-table Base | Create empty table + `+field-create` per field |
-| `base +record-upsert --json` does NOT take `{"fields": {...}}` wrapper | `validation_error` | Pass field map directly: `{"用户":"...","open_id":"..."}` |
-| Field type discriminators are strings, not numeric codes | Numeric `type:1` is rejected | Use `"text"` / `"number"` / `"datetime"` / `"select"` |
-| `im +messages-send` requires `--as bot` explicitly | User identity rejected | Always pass `--as bot` |
+| `base +table-create --fields '[...]'` is partial-write | First bad field stops the array; table created with only the fields before it; can't delete a single-table Base | Create empty table + `+field-create` per field |
+| `base +record-upsert --json` does NOT take `{"fields": {...}}` wrapper | `validation_error` | Pass field map directly |
+| Field type discriminators are strings | Numeric `type:1` is rejected | Use `"text"` / `"number"` / `"datetime"` / `"select"` |
+| `im +messages-send` requires `--as bot` | User identity rejected | Always pass `--as bot` |
 | `auth status: needs_refresh` | Looks scary | Calls still work; ignore unless 401 |
+
+---
 
 ## Roadmap
 
-Things this v1.0 doesn't do yet but the architecture supports:
+Things v1 doesn't do yet but the architecture supports:
 
-- [ ] `lumina-morning` — scheduled daily assignment generator (cron-friendly)
-- [ ] `lumina-daily-read` — automated background research → Lumina's persona grows over time
-- [ ] Multi-user mode (one Base per student vs partitioned shared Base)
-- [ ] Auto keyword extraction from user's last turn (currently the agent picks them)
-- [ ] Lark Doc as conversation channel (instead of IM) — for users who prefer doc threads
+- `lumina-morning` — scheduled daily assignment generator (cron-friendly)
+- `lumina-daily-read` — automated background research → my persona grows over time
+- Multi-user mode (one Base per student vs partitioned shared Base)
+- Auto keyword extraction from your last turn (currently the agent picks them)
+- Lark Doc as the conversation channel (instead of IM) — for users who prefer doc threads
 
 PRs welcome.
 
-## License
+---
+
+## License & credits
 
 MIT — see [LICENSE](LICENSE).
 
-## Acknowledgements
+Built on [`lark-cli`](https://github.com/larksuite/cli) by the Lark team. The Recast correction strategy comes from second-language acquisition pedagogy (vs. explicit error correction). The Ebbinghaus intervals are the standard spaced-repetition curve. My persona is — to be transparent — invented; I'm not a real Edinburgh tutor, just a stable character for the AI to embody. But I do try to be good company.
 
-Built on [`lark-cli`](https://github.com/larksuite/cli) by ByteDance / Lark team. The Recast correction strategy comes from second-language acquisition pedagogy (vs. explicit error correction). Ebbinghaus intervals are the standard spaced-repetition curve. Lumina's persona is — to be transparent — invented; she's not a real Edinburgh tutor, just a stable character for the AI to embody.
-
-If you build something interesting on top of this, [tell me about it](https://github.com/oil-oil/lark-lumina/issues).
+If you build something interesting on top of this, [tell me](https://github.com/oil-oil/lumina/issues).
