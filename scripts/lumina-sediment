@@ -16,7 +16,8 @@ Stdin schema (every key optional):
   "topic_new":              [{"主题":"...", "分类":"...", "关键词":"...", "事实/上下文":"...", "Lumina 的视角":"...", "状态":"open"}],
   "topic_update":           [{"主题":"<existing 主题>", "patches":{"事实/上下文":"...", "状态":"resolved"}}],
   "log_new":                {"主话题":"...", "对话摘要":"...", "用户情绪":"...", "留下的悬念":"...", "沉淀的错题数": 2},
-  "diary_new":              [{"条目":"Just read · ...", "分类":"读到的", "内容":"...", "可主动提起":"..."}],
+  "diary_new":              [{"条目":"Just read · ...", "分类":"读到的", "内容":"...", "可主动提起":"true"}],
+  "diary_touched":          ["Cat on my balcony", "Ferry to Cacilhas"],  // 条目名列表；标记今天已主动提起过（LRU 轮换）
   "student_update":         {"patches":{"累计学习天数": 7, "上次互动日期": <ms>, "备注":"..."}}
 }
 
@@ -147,7 +148,8 @@ def main() -> None:
     t = cfg["tables"]
 
     counters = {"vocab_new": 0, "vocab_review": 0, "topic_new": 0,
-                "topic_update": 0, "log_new": 0, "diary_new": 0, "student_update": 0}
+                "topic_update": 0, "log_new": 0, "diary_new": 0,
+                "diary_touched": 0, "student_update": 0}
 
     for v in deltas.get("vocab_new", []):
         v.setdefault("首次出现日期", now_ms())
@@ -209,9 +211,24 @@ def main() -> None:
             print(f"  + log: {log.get('日期')} {log.get('主话题','?')}")
 
     for d in deltas.get("diary_new", []):
+        # Any new diary entry Lumina writes today is naturally "just touched"
+        d.setdefault("最近提起", today_iso())
         if upsert(bt, t["diary"], d, dry_run=args.dry_run).get("ok"):
             counters["diary_new"] += 1
             print(f"  + diary: {d.get('条目','?')}")
+
+    # diary_touched: Lumina volunteered these entries today; mark them for LRU.
+    for title in deltas.get("diary_touched", []):
+        if not isinstance(title, str) or not title.strip():
+            continue
+        rid = find_record_id(bt, t["diary"], "条目", title)
+        if not rid:
+            sys.stderr.write(f"  ⚠ diary_touched: '{title}' not found\n")
+            continue
+        if upsert(bt, t["diary"], {"最近提起": today_iso()},
+                  record_id=rid, dry_run=args.dry_run).get("ok"):
+            counters["diary_touched"] += 1
+            print(f"  ↻ diary touched: {title}")
 
     su = deltas.get("student_update")
     if su:

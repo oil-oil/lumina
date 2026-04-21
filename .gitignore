@@ -9,3 +9,7 @@ __pycache__/
 # Local config (per-user; lives at ~/.lumina/config.json, never in repo)
 config.json
 .lumina/
+
+# Authoring scratchpad (not shipped)
+todo.md
+review/

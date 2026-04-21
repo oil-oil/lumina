@@ -157,7 +157,19 @@ def main():
     topics = lark_list(bt, t["topic"])
 
     diary_locked = [d for d in diary if d.get("分类") in ("基础设定", "观点")]
-    diary_recent = [d for d in diary if d.get("分类") in ("近况", "读到的", "日常")]
+    # 只抽取 “可主动提起 = true” 的近态条目，LRU 轮换：`最近提起` 最久的排在前，最多 5 条
+    def _is_proactive(d: dict) -> bool:
+        v = d.get("可主动提起")
+        return v is True or str(v).lower() in ("true", "1", "yes")
+
+    diary_recent_pool = [
+        d for d in diary
+        if d.get("分类") in ("近况", "读到的", "日常") and _is_proactive(d)
+    ]
+    diary_recent = sorted(
+        diary_recent_pool,
+        key=lambda d: (d.get("最近提起") or "")
+    )[:5]
 
     logs_sorted = sorted(logs, key=lambda x: x.get("日期", ""), reverse=True)[:3]
 
