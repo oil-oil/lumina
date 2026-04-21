@@ -62,6 +62,16 @@ def keyword_match(haystack: str, needles: list[str]) -> bool:
     return any(n.lower().strip() in h for n in needles if n.strip())
 
 
+def days_since(date_str: str) -> int | None:
+    """Return days between today and a YYYY-MM-DD date string, or None if unparseable."""
+    try:
+        last = datetime.strptime(date_str[:10], "%Y-%m-%d").replace(tzinfo=timezone.utc)
+        today = datetime.now(timezone.utc).replace(hour=0, minute=0, second=0, microsecond=0)
+        return (today - last).days
+    except (ValueError, TypeError):
+        return None
+
+
 def render_markdown(ctx: dict) -> str:
     out = []
     s = ctx["student"]
@@ -84,6 +94,12 @@ def render_markdown(ctx: dict) -> str:
         out.append("\n### LUMINA SELF (recent reads / mood — fresh from her own life)")
         for d in ctx["diary_recent"]:
             out.append(f"- **{d.get('条目','?')}** [{d.get('分类','?')}] {d.get('内容','')}")
+
+    gap = ctx.get("days_since_last_session")
+    if gap is not None:
+        out.append(f"\n### DAYS_SINCE_LAST_SESSION: {gap}")
+    elif not ctx["logs"]:
+        out.append("\n### DAYS_SINCE_LAST_SESSION: (no prior session)")
 
     if ctx["logs"]:
         out.append("\n### LAST CONVERSATIONS")
@@ -161,6 +177,10 @@ def main():
         topics, key=lambda x: x.get("最近提及", ""), reverse=True
     )[:3] if not topic_hits else []
 
+    last_session_days = None
+    if logs_sorted:
+        last_session_days = days_since(logs_sorted[0].get("日期", ""))
+
     ctx = {
         "student": students[0] if students else None,
         "diary_locked": diary_locked,
@@ -170,6 +190,7 @@ def main():
         "topic_hits": topic_hits,
         "topic_recent": topic_recent,
         "keywords": keywords,
+        "days_since_last_session": last_session_days,
     }
 
     if args.json:
