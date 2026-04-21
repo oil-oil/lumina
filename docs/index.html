@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1" />
+    <title>Lumina · 一位住在你飞书里的英语老师</title>
+    <meta name="description" content="Lumina 是一位住在你飞书里的英语老师。我们上次聊到哪里，她都记得。把 GitHub 链接丢给你的 AI Agent 就能装上。" />
+    <meta name="theme-color" content="#F7F5EE" />
+    <meta name="author" content="Lumina" />
+
+    <!-- favicons -->
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+    <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
+    <link rel="icon" type="image/png" sizes="192x192" href="assets/favicon-192.png" />
+    <link rel="shortcut icon" href="assets/favicon.ico" />
+    <link rel="apple-touch-icon" sizes="180x180" href="assets/apple-touch-icon.png" />
+
+    <!-- open graph / twitter -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Lumina · 一位住在你飞书里的英语老师" />
+    <meta property="og:description" content="把 GitHub 链接丢给你的 AI Agent，她就会出现。" />
+    <meta property="og:image" content="assets/og.jpg" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Lumina · 一位住在你飞书里的英语老师" />
+    <meta name="twitter:description" content="把 GitHub 链接丢给你的 AI Agent，她就会出现。" />
+    <meta name="twitter:image" content="assets/og.jpg" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Figtree:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+      :root {
+        --paper: #f7f5ee;
+        --ink: #2a2620;
+        --sea: #2f5d4f;
+        --sea-soft: #5a8077;
+        --border: #e3ddd0;
+        --muted: #6e6657;
+        --white: #ffffff;
+      }
+      html {
+        scroll-behavior: smooth;
+      }
+      body {
+        background: var(--paper);
+        color: var(--ink);
+        font-family: "Figtree", ui-sans-serif, system-ui, -apple-system,
+          "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+        font-feature-settings: "ss01";
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+      .display {
+        font-family: "Fraunces", ui-serif, Georgia, "Songti SC", serif;
+        letter-spacing: -0.015em;
+      }
+      .mono {
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo,
+          monospace;
+      }
+      ::selection {
+        background-color: rgba(47, 93, 79, 0.18);
+        color: var(--ink);
+      }
+      .container-page {
+        width: 100%;
+        margin-left: auto;
+        margin-right: auto;
+        padding-left: 1.25rem;
+        padding-right: 1.25rem;
+      }
+      @media (min-width: 640px) {
+        .container-page {
+          padding-left: 2rem;
+          padding-right: 2rem;
+        }
+      }
+      @media (min-width: 1024px) {
+        .container-page {
+          padding-left: 2.5rem;
+          padding-right: 2.5rem;
+          max-width: 1160px;
+        }
+      }
+      .border-soft {
+        border-color: var(--border);
+      }
+      .text-ink-65 {
+        color: rgba(42, 38, 32, 0.65);
+      }
+      .text-ink-55 {
+        color: rgba(42, 38, 32, 0.55);
+      }
+      .text-ink-45 {
+        color: rgba(42, 38, 32, 0.45);
+      }
+      .text-ink-80 {
+        color: rgba(42, 38, 32, 0.8);
+      }
+      .text-sea {
+        color: var(--sea);
+      }
+      .bg-sea {
+        background-color: var(--sea);
+      }
+      .bg-paper {
+        background-color: var(--paper);
+      }
+      .bg-card-soft {
+        background-color: rgba(255, 255, 255, 0.6);
+      }
+      .reveal {
+        opacity: 0;
+        transform: translateY(16px);
+        transition: opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1),
+          transform 0.7s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .reveal.is-visible,
+      .no-js .reveal,
+      html.fallback .reveal {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      @media (prefers-reduced-motion: reduce) {
+        .reveal {
+          opacity: 1;
+          transform: none;
+          transition: none;
+        }
+      }
+      .toast {
+        position: fixed;
+        bottom: 1.5rem;
+        left: 50%;
+        transform: translateX(-50%) translateY(20px);
+        background: var(--ink);
+        color: var(--paper);
+        padding: 0.7rem 1.1rem;
+        border-radius: 999px;
+        font-size: 0.85rem;
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+        z-index: 50;
+        pointer-events: none;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+      }
+      .toast.show {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+      }
+      /* Used by inline illustrations: blends watercolor edges into the paper. */
+      .paper-bleed {
+        -webkit-mask-image: radial-gradient(
+          ellipse 92% 90% at 50% 50%,
+          #000 60%,
+          transparent 100%
+        );
+        mask-image: radial-gradient(
+          ellipse 92% 90% at 50% 50%,
+          #000 60%,
+          transparent 100%
+        );
+      }
+      .link-underline {
+        background-image: linear-gradient(currentColor, currentColor);
+        background-size: 100% 1px;
+        background-repeat: no-repeat;
+        background-position: 0 100%;
+        padding-bottom: 1px;
+        transition: color 0.2s ease;
+      }
+    </style>
+  </head>
+  <body>
+    <noscript>
+      <style>
+        .reveal {
+          opacity: 1 !important;
+          transform: none !important;
+        }
+      </style>
+    </noscript>
+    <!-- nav -->
+    <header class="relative z-20">
+      <div class="container-page flex items-center justify-between py-6">
+        <a href="#top" class="display text-lg font-medium tracking-tight">Lumina</a>
+        <nav class="hidden items-center gap-10 text-sm md:flex">
+          <a href="#about" class="text-ink-65 transition-colors hover:text-[color:var(--ink)]">关于我</a>
+          <a href="#memory" class="text-ink-65 transition-colors hover:text-[color:var(--ink)]">记忆</a>
+          <a href="#how" class="text-ink-65 transition-colors hover:text-[color:var(--ink)]">怎么学</a>
+          <a href="#invite" class="text-ink-65 transition-colors hover:text-[color:var(--ink)]">邀请</a>
+        </nav>
+        <a
+          href="https://github.com/oil-oil/lumina"
+          target="_blank"
+          rel="noreferrer"
+          class="inline-flex items-center gap-1.5 text-sm text-ink-65 transition-colors hover:text-[color:var(--ink)]"
+        >
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+            <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.34c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.16-.89-1.16-.73-.5.06-.49.06-.49.81.06 1.24.83 1.24.83.72 1.23 1.88.87 2.34.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+          </svg>
+          <span class="hidden sm:inline">GitHub</span>
+        </a>
+      </div>
+    </header>
+
+    <main>
+      <!-- hero -->
+      <section id="top" class="relative">
+        <div class="container-page grid grid-cols-1 items-center gap-14 pt-10 pb-24 md:grid-cols-12 md:pt-16 md:pb-32">
+          <div class="reveal md:col-span-7">
+            <p class="text-sm tracking-wide text-ink-55">A bilingual English companion</p>
+            <h1
+              class="display mt-5 font-medium leading-[1.02] tracking-tight"
+              style="font-size: clamp(3rem, 7.5vw, 5.75rem)"
+            >
+              你好，我叫 <span class="italic text-sea">Lumina</span>。
+            </h1>
+            <p class="mt-8 max-w-xl text-lg leading-relaxed text-ink-80">
+              一位英语老师，现在住在里斯本。我们上次聊到哪里，我都记得 —— 所以下次见面时，你不用从头再介绍一遍自己。
+            </p>
+            <div class="mt-10 flex items-center gap-6">
+              <a
+                href="#invite"
+                class="inline-flex h-11 items-center rounded-full bg-sea px-5 text-sm font-medium text-[color:var(--paper)] transition-opacity hover:opacity-90"
+              >邀请我到你的飞书</a>
+              <a
+                href="#about"
+                class="inline-flex items-center gap-1 text-sm text-ink-65 transition-colors hover:text-[color:var(--ink)]"
+              >
+                先读一读我的介绍
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M7 17 17 7" />
+                  <path d="M7 7h10v10" />
+                </svg>
+              </a>
+            </div>
+          </div>
+
+          <div class="reveal md:col-span-5">
+            <div class="relative mx-auto w-full" style="max-width: 380px">
+              <img
+                src="assets/lumina-portrait.jpg"
+                alt="Lumina · 插画头像"
+                class="aspect-square w-full rounded-[2px] object-cover"
+                loading="eager"
+              />
+              <div class="mt-5 flex items-baseline justify-between text-sm text-ink-55">
+                <span>Lumina</span>
+                <span class="mono text-xs">Lisbon · 2026</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- about -->
+      <section id="about" class="border-t border-soft">
+        <div class="container-page grid grid-cols-1 gap-12 py-24 md:grid-cols-12 md:py-32">
+          <div class="reveal md:col-span-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-ink-45">关于我</p>
+            <h2 class="display mt-4 text-4xl font-medium leading-tight tracking-tight md:text-5xl">
+              一个喜欢散步、<br />偶尔写作的英语老师
+            </h2>
+          </div>
+          <div class="reveal md:col-span-8 md:pl-6">
+            <div class="max-w-2xl space-y-5 text-lg leading-relaxed text-ink-80">
+              <p>
+                我出生在爱丁堡，去年搬到了里斯本。白天给讲中文的成年人上英语课，业余时间写一份叫
+                <em class="display not-italic" style="font-style: normal; color: var(--ink)"> Loose Translations </em>
+                的 newsletter，专门聊那些在翻译里会丢失一点东西的俚语。
+              </p>
+              <p>
+                我会读 HSK 5 的中文，说得不太好，带一点北京口音，因为第一个老师是北京人。家里有一只叫 Biscuit 的橘猫。聊电影、散步、书、或者你最近在忙什么，都可以。
+              </p>
+
+              <figure class="mt-12 -mx-6 sm:-mx-10">
+                <img
+                  src="assets/lumina-cafe.jpg"
+                  alt="Lumina 在里斯本的咖啡馆里写笔记"
+                  class="w-full block"
+                  loading="lazy"
+                />
+                <figcaption class="-mt-2 px-6 sm:px-10 text-xs text-ink-45">
+                  本周的某个下午 · 一家叫不出名字的小馆子
+                </figcaption>
+              </figure>
+
+              <dl class="mt-12 grid grid-cols-1 gap-x-10 gap-y-4 border-t border-soft pt-8 text-base sm:grid-cols-2">
+                <div class="flex items-baseline justify-between gap-6 border-b border-dashed border-soft pb-3">
+                  <dt class="text-ink-55">现在住在</dt>
+                  <dd class="text-right">葡萄牙 · 里斯本</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-6 border-b border-dashed border-soft pb-3">
+                  <dt class="text-ink-55">白天在做</dt>
+                  <dd class="text-right">英语教师</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-6 border-b border-dashed border-soft pb-3">
+                  <dt class="text-ink-55">业余在写</dt>
+                  <dd class="text-right">Loose Translations</dd>
+                </div>
+                <div class="flex items-baseline justify-between gap-6 border-b border-dashed border-soft pb-3">
+                  <dt class="text-ink-55">同住的室友</dt>
+                  <dd class="text-right">Biscuit（橘猫）</dd>
+                </div>
+              </dl>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- memory -->
+      <section id="memory" class="border-t border-soft">
+        <div class="container-page grid grid-cols-1 gap-12 py-24 md:grid-cols-12 md:py-32">
+          <div class="reveal md:col-span-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-ink-45">记忆</p>
+            <h2 class="display mt-4 text-4xl font-medium leading-tight tracking-tight md:text-5xl">
+              我把我们的对话，<br />留在你自己的飞书里
+            </h2>
+          </div>
+          <div class="reveal md:col-span-8 md:pl-6">
+            <div class="max-w-2xl">
+              <p class="text-lg leading-relaxed text-ink-80">
+                很多 AI 老师每次打开都像第一次见面。我不一样 —— 我们的关系存在你自己的飞书里，五张小表格，记着你、我、和我们聊过的一切。数据全部属于你，我只是一个认真记笔记的人。
+              </p>
+
+              <div class="mt-12 border-t border-soft" id="memory-rows"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- how -->
+      <section id="how" class="border-t border-soft">
+        <div class="container-page grid grid-cols-1 gap-12 py-24 md:grid-cols-12 md:py-32">
+          <div class="reveal md:col-span-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-ink-45">怎么学</p>
+            <h2 class="display mt-4 text-4xl font-medium leading-tight tracking-tight md:text-5xl">
+              不打红叉，<br />只写批注
+            </h2>
+          </div>
+          <div class="reveal md:col-span-8 md:pl-6">
+            <div class="max-w-2xl space-y-6 text-lg leading-relaxed text-ink-80">
+              <p>
+                对我说一句「想练英语」，我会在你的飞书里建一个今天的文档，给你一个话题，你用英文写给我看。写完告诉我一声，我把批注贴在原句旁边 —— 指出更地道的说法，并说一句为什么。
+              </p>
+              <p>
+                这种方式叫 <span class="display">Recast</span>，来自真实的语言教学研究：像老师在纸上划一条波浪线，而不是打一个巨大的红叉。
+              </p>
+
+              <figure class="mt-10 -mx-6 sm:-mx-10">
+                <img
+                  src="assets/lumina-biscuit.jpg"
+                  alt="Lumina 在沙发上写 newsletter，Biscuit 在她臂弯里睡着"
+                  class="w-full block"
+                  loading="lazy"
+                />
+                <figcaption class="-mt-2 px-6 sm:px-10 text-xs text-ink-45">
+                  Biscuit 觉得我写得太久了
+                </figcaption>
+              </figure>
+
+              <figure class="mt-10 rounded-md border border-soft bg-card-soft p-7">
+                <figcaption class="text-xs uppercase tracking-[0.18em] text-ink-45">
+                  Recast · 一个例子
+                </figcaption>
+                <p class="mt-4 text-[17px] leading-relaxed text-ink-55">
+                  <span class="line-through" style="text-decoration-color: rgba(42, 38, 32, 0.4)">
+                    I utilize the subway to go to work every day.
+                  </span>
+                </p>
+                <p class="mt-1 text-[17px] leading-relaxed text-sea">
+                  I take the subway to work every day.
+                </p>
+                <p class="mt-4 text-[15px] leading-relaxed text-ink-80">
+                  口语里 <span class="display">take</span> 比 <span class="display">utilize</span> 自然得多；
+                  <span class="display">to go to work</span> 里的 <span class="display">to go</span> 可以省掉。
+                </p>
+              </figure>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- invite -->
+      <section id="invite" class="border-t border-soft">
+        <div class="container-page grid grid-cols-1 gap-12 py-24 md:grid-cols-12 md:py-32">
+          <div class="reveal md:col-span-4">
+            <p class="text-xs uppercase tracking-[0.18em] text-ink-45">邀请</p>
+            <h2 class="display mt-4 text-4xl font-medium leading-tight tracking-tight md:text-5xl">
+              把链接丢给你的<br />AI Agent 就行
+            </h2>
+          </div>
+          <div class="reveal md:col-span-8 md:pl-6">
+            <div class="max-w-2xl">
+              <p class="text-lg leading-relaxed text-ink-80">
+                不需要命令行，也不需要你懂代码。把下面这个链接发给你在用的 AI Agent（推荐 <a href="https://manus.im" target="_blank" rel="noreferrer" class="underline decoration-dotted underline-offset-4 hover:decoration-solid" style="color: var(--ink)">Manus</a>，浏览器里就能用），跟它说一句
+                <span class="display" style="color: var(--ink)">“帮我把这个 skill 装上”</span>，它会自己完成所有底层的事。
+              </p>
+              <p class="mt-4 text-sm leading-relaxed text-ink-55">
+                过程中会弹一次飞书授权（如果还没登录）——我在这个地方安家，等你来。
+              </p>
+
+              <div class="mt-10 flex items-center gap-3 rounded-full border border-soft bg-white px-5 py-3">
+                <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true" class="shrink-0 text-ink-55">
+                  <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.34c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.16-.89-1.16-.73-.5.06-.49.06-.49.81.06 1.24.83 1.24.83.72 1.23 1.88.87 2.34.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+                </svg>
+                <code id="repo-url" class="mono flex-1 truncate text-sm" style="color: rgba(42, 38, 32, 0.9)">
+                  https://github.com/oil-oil/lumina
+                </code>
+                <button
+                  id="copy-btn"
+                  class="inline-flex shrink-0 items-center gap-1.5 rounded-full bg-sea px-3.5 py-1.5 text-xs font-medium text-[color:var(--paper)] transition-opacity hover:opacity-90"
+                >
+                  <svg id="copy-icon" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <rect x="9" y="9" width="13" height="13" rx="2" />
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+                  </svg>
+                  <span id="copy-text">复制链接</span>
+                </button>
+              </div>
+
+              <div class="mt-5 flex flex-wrap gap-2 text-xs text-ink-65">
+                <span class="inline-flex items-center rounded-full border border-soft bg-card-soft px-3 py-1" style="color: var(--ink)">Manus · 最简单</span>
+                <span class="inline-flex items-center rounded-full border border-soft bg-card-soft px-3 py-1">Claude Code</span>
+                <span class="inline-flex items-center rounded-full border border-soft bg-card-soft px-3 py-1">Cursor</span>
+                <span class="inline-flex items-center rounded-full border border-soft bg-card-soft px-3 py-1">Hermes</span>
+                <span class="inline-flex items-center rounded-full border border-soft bg-card-soft px-3 py-1">· 或任何 AI Agent</span>
+              </div>
+
+              <p class="mt-10 text-base leading-relaxed text-ink-65">
+                装好以后，随时在你的 Agent 里说一声「我想练英语」，或者开个话头跟我聊天气 / 周末 / 你看的电影，我就会出现。我也会有自己想跟你聊的。
+              </p>
+
+              <div class="mt-10">
+                <a
+                  href="https://github.com/oil-oil/lumina"
+                  target="_blank"
+                  rel="noreferrer"
+                  class="inline-flex h-10 items-center gap-2 rounded-full border border-soft bg-white px-5 text-sm transition-colors hover:bg-[color:var(--paper)]"
+                >
+                  <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true">
+                    <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38v-1.34c-2.22.48-2.69-1.07-2.69-1.07-.36-.92-.89-1.16-.89-1.16-.73-.5.06-.49.06-.49.81.06 1.24.83 1.24.83.72 1.23 1.88.87 2.34.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.13 0 0 .67-.21 2.2.82a7.7 7.7 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.11.16 1.93.08 2.13.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48v2.19c0 .21.15.46.55.38A8 8 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+                  </svg>
+                  在 GitHub 查看源码
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-soft">
+      <div class="container-page flex flex-col items-start justify-between gap-6 py-10 text-sm text-ink-55 md:flex-row md:items-center">
+        <p>Lumina 是一个虚构的角色，一个被设计得稳定、温和、会记笔记的 AI 老师。</p>
+        <div class="flex items-center gap-6">
+          <a href="https://github.com/oil-oil/lumina" target="_blank" rel="noreferrer" class="link-underline hover:text-[color:var(--ink)]">GitHub</a>
+          <a href="https://github.com/oil-oil/lumina/issues" target="_blank" rel="noreferrer" class="link-underline hover:text-[color:var(--ink)]">留言</a>
+          <span>MIT</span>
+        </div>
+      </div>
+    </footer>
+
+    <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+    <script>
+      // memory rows
+      const rows = [
+        ["你的档案", "你的英语水平、目标与兴趣。"],
+        ["对话日记", "每次聊了什么、还没聊完什么。"],
+        ["话题记忆", "我们聊过的电影、人、地方、生活里的小事。"],
+        ["词汇与错题", "按遗忘曲线，在合适的时候再出现一次。"],
+        ["我的日记", "我最近在读、在写、在想的一些事。"],
+      ];
+      const memoryEl = document.getElementById("memory-rows");
+      memoryEl.innerHTML = rows
+        .map(
+          ([name, desc]) => `
+        <div class="grid grid-cols-12 items-baseline gap-4 border-b border-soft py-5">
+          <p class="col-span-12 sm:col-span-4">${name}</p>
+          <p class="col-span-12 text-ink-65 sm:col-span-8">${desc}</p>
+        </div>`
+        )
+        .join("");
+
+      // reveal on scroll
+      const reveals = document.querySelectorAll(".reveal");
+      if ("IntersectionObserver" in window) {
+        const io = new IntersectionObserver(
+          (entries) => {
+            entries.forEach((e) => {
+              if (e.isIntersecting) {
+                e.target.classList.add("is-visible");
+                io.unobserve(e.target);
+              }
+            });
+          },
+          { rootMargin: "0px 0px -10% 0px", threshold: 0.01 }
+        );
+        reveals.forEach((el) => io.observe(el));
+        // Safety net: after 1.2s, just reveal everything regardless of viewport.
+        setTimeout(() => {
+          reveals.forEach((el) => el.classList.add("is-visible"));
+        }, 1200);
+      } else {
+        reveals.forEach((el) => el.classList.add("is-visible"));
+      }
+
+      // toast
+      const toastEl = document.getElementById("toast");
+      let toastTimer;
+      function toast(text) {
+        toastEl.textContent = text;
+        toastEl.classList.add("show");
+        clearTimeout(toastTimer);
+        toastTimer = setTimeout(() => toastEl.classList.remove("show"), 1800);
+      }
+
+      // copy
+      const copyBtn = document.getElementById("copy-btn");
+      const copyText = document.getElementById("copy-text");
+      const copyIcon = document.getElementById("copy-icon");
+      const checkSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>`;
+      const copySvg = copyIcon.outerHTML;
+      copyBtn.addEventListener("click", async () => {
+        const url = document.getElementById("repo-url").textContent.trim();
+        try {
+          await navigator.clipboard.writeText(url);
+          copyText.textContent = "已复制";
+          copyIcon.outerHTML = checkSvg.replace('width="14"', 'id="copy-icon" width="14"');
+          toast("已复制，发给你的 Agent 就好");
+          setTimeout(() => {
+            copyText.textContent = "复制链接";
+            const cur = document.getElementById("copy-icon");
+            if (cur) cur.outerHTML = copySvg;
+          }, 1800);
+        } catch {
+          toast("复制失败，手动选中也可以");
+        }
+      });
+    </script>
+  </body>
+</html>
