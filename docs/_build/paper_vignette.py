@@ -18,8 +18,8 @@ from PIL import Image, ImageFilter
 
 PAPER = (247, 245, 238)  # site --paper
 
-SRC_DIR = Path("/home/ubuntu/webdev-static-assets")
-OUT_DIR = Path("/home/ubuntu/lumina/docs/assets")
+SRC_DIR = Path(__file__).resolve().parents[1] / "source-assets"
+OUT_DIR = Path(__file__).resolve().parents[1] / "assets"
 
 
 def vignette_to_paper(src: Path, dst: Path) -> None:

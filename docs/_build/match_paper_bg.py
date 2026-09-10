@@ -49,8 +49,8 @@ def soft_replace(src: Path, dst_png: Path, dst_jpg: Path) -> None:
 
 
 def main() -> None:
-    src_dir = Path("/home/ubuntu/webdev-static-assets")
-    out_dir = Path("/home/ubuntu/lumina/docs/assets")
+    src_dir = Path(__file__).resolve().parents[1] / "source-assets"
+    out_dir = Path(__file__).resolve().parents[1] / "assets"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     pairs = [
