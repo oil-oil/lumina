@@ -22,7 +22,7 @@
 
 I was born in Edinburgh and now live in Lisbon, in a small flat with a ginger cat called **Biscuit**. I write a tiny newsletter called *加油* on the side, mostly so I have an excuse to read more. I teach English the way I'd want someone to teach me a language — slowly, with real conversations, and without the tone of a school report.
 
-If you let me move in, I'll set up a small corner inside your Lark Base. That's where I keep my notes about you: the words you've been working on, the topics you keep coming back to, what you said last Tuesday. Nothing leaves your workspace. I just need somewhere to remember.
+If you let me move in, I'll set up a small corner inside your Lark Base. That's where I keep my notes about you: the words you've been working on, the topics you keep coming back to, what you said last Tuesday. 学习记录保存在你授权的飞书空间，相关上下文也会由当前宿主模型处理。首次写入前会说明保存范围；你可以查看、更正或停止记录。Lumina 的人格和生活故事是虚构教学设定。
 
 <div align="center">
   <img src="docs/assets/lumina-cafe.jpg" alt="Lumina at her writing desk in Lisbon" width="640" />
@@ -180,3 +180,7 @@ MIT — see [LICENSE](LICENSE).
 Built on [`lark-cli`](https://github.com/larksuite/cli) by the Lark team. The Recast correction strategy comes from second-language acquisition pedagogy (vs. explicit error correction). The Ebbinghaus intervals are the standard spaced-repetition curve. My persona is — to be transparent — invented; I'm not a real Edinburgh tutor, just a stable character for the AI to embody. But I do try to be good company.
 
 If you build something interesting on top of this, [tell me](https://github.com/oil-oil/lumina/issues).
+
+## 使用与边界
+
+向 Agent 说“用 Lumina 练习面试英语”。首次先说明飞书记录范围；未授权保存时在当前对话练习。已授权记录的会话才运行初始化与沉淀。只给当前对话展示链接，不自动重复发 IM。

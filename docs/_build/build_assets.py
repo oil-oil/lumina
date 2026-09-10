@@ -5,13 +5,13 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFont, ImageFilter
 import urllib.request, io, os
 
-ROOT = Path("/home/ubuntu/lumina/docs")
+ROOT = Path(__file__).resolve().parents[1]
 ASSETS = ROOT / "assets"
 ASSETS.mkdir(parents=True, exist_ok=True)
 
 # --- sources -----------------------------------------------------------------
-PORTRAIT_LOCAL = Path("/home/ubuntu/webdev-static-assets/lumina-v2-portrait.png")
-OG_BASE_LOCAL = Path("/home/ubuntu/webdev-static-assets/lumina-og.png")
+PORTRAIT_LOCAL = Path(__file__).resolve().parents[1] / "source-assets" / "lumina-v2-portrait.png"
+OG_BASE_LOCAL = Path(__file__).resolve().parents[1] / "source-assets" / "lumina-og.png"
 
 portrait = Image.open(PORTRAIT_LOCAL).convert("RGBA")
 og_base = Image.open(OG_BASE_LOCAL).convert("RGBA")
